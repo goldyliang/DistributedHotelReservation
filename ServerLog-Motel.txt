@@ -1,0 +1,3 @@
+LOG:Tue Oct 13 18:05:29 EDT 2015:Logging started.
+LOG:Tue Oct 13 18:05:29 EDT 2015:Logging started.
+LOG:Tue Oct 13 18:11:32 EDT 2015:Query reply sent: GuestID:;Hotel:Motel;Type:SINGLE;In:2015/10/14;Out:2015/10/17;Rate:0.0;toHost:/127.0.0.1

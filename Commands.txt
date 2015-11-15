@@ -1,0 +1,9 @@
+TO run rmiregisry
+
+ rmiregistry -J-Djava.rmi.server.codebase=file:/home/gordon/workspace/DHRS/bin/ &
+
+To run server
+
+java  -classpath /home/gordon/workspace/DHRS/bin  HotelServer.HotelServer
+
+-

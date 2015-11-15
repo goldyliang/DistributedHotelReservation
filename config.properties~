@@ -1,0 +1,29 @@
+RegistryHost = localhost
+RegistryPort = 1099
+AdminName = HotelCentralAdmin
+BindName = Gordon
+FullName = Gordon Hotel
+Description = This is a wonderful hotel. \
+              Come and try.
+RoomCnt-SINGLE = 2
+RoomCnt-DOUBLE = 10
+RoomCnt-FAMILY = 5
+Rate-SINGLE = 80
+Rate-DOUBLE = 90
+Rate-FAMILY = 110
+
+ManagerID = manager
+ManagerPassword = pass
+
+QueryPort = 5000
+
+LogFile = ServerLog-Gordon.txt
+LogQueries = 1
+
+
+https://docs.oracle.com/javase/tutorial/networking/datagrams/broadcasting.html
+
+http://www.drdobbs.com/jvm/building-secure-java-rmi-servers/184405197
+
+http://www.itec.uni-klu.ac.at/~harald/ds2001/rmi/factory/factory2.html
+

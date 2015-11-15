@@ -1,0 +1,23 @@
+RegistryHost = localhost
+RegistryPort = 1099
+AdminName = HotelCentralAdmin
+BindName = Star
+FullName = Star Hotel
+Description = This is a 5 Star hotel.
+
+RoomCnt-SINGLE = 15
+RoomCnt-DOUBLE = 15
+RoomCnt-FAMILY = 12
+Rate-SINGLE = 120
+Rate-DOUBLE = 150
+Rate-FAMILY = 250
+
+ManagerID = manager
+ManagerPassword = pass
+
+QueryPort = 5001
+
+LogFile = ServerLog-Star.txt
+LogQueries = 1
+
+

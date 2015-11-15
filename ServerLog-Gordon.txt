@@ -1,0 +1,2 @@
+LOG:Mon Oct 26 17:00:13 EDT 2015:Logging started.
+LOG:Mon Oct 26 17:00:13 EDT 2015:Logging started.

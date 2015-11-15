@@ -1,0 +1,22 @@
+RegistryHost = localhost
+RegistryPort = 1099
+AdminName = HotelCentralAdmin
+BindName = Gordon
+FullName = Gordon Hotel
+Description = This is a wonderful hotel. \
+              Come and try.
+RoomCnt-SINGLE = 12
+RoomCnt-DOUBLE = 13
+RoomCnt-FAMILY = 12
+Rate-SINGLE = 80
+Rate-DOUBLE = 90
+Rate-FAMILY = 110
+
+ManagerID = manager
+ManagerPassword = pass
+
+QueryPort = 5000
+
+LogFile = ServerLog-Gordon.txt
+LogQueries = 1
+

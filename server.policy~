@@ -1,0 +1,3 @@
+grant codeBase "file:/home/gordon/workspace/RMIHelloWorld/bin" {
+    permission java.security.AllPermission;
+};
