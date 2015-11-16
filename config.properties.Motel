@@ -1,13 +1,15 @@
 RegistryHost = localhost
 RegistryPort = 1050
+HTTPPort = 8051
+HTTPManPort = 9051
 AdminName = HotelCentralAdmin
 BindName = Motel
 FullName = Cheap Motel
 Description = This is a cheap Motel.
 
-RoomCnt-SINGLE = 3
-RoomCnt-DOUBLE = 3
-RoomCnt-FAMILY = 3
+RoomCnt-SINGLE = 25
+RoomCnt-DOUBLE = 25
+RoomCnt-FAMILY = 25
 Rate-SINGLE = 40
 Rate-DOUBLE = 60
 Rate-FAMILY = 80

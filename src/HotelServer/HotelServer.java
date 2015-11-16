@@ -13,44 +13,27 @@ import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
-//import java.util.Calendar;
-//import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.TreeMap;
 
-import miscutil.SimpleDate;
+import javax.xml.ws.Endpoint;
 
-import org.omg.CORBA.ORB;
-import org.omg.CORBA.ORBPackage.InvalidName;
-import org.omg.CosNaming.NameComponent;
-import org.omg.CosNaming.NamingContextExt;
-import org.omg.CosNaming.NamingContextExtHelper;
-import org.omg.CosNaming.NamingContextPackage.CannotProceed;
-import org.omg.CosNaming.NamingContextPackage.NotFound;
-import org.omg.PortableServer.POA;
-import org.omg.PortableServer.POAHelper;
-import org.omg.PortableServer.POAManagerPackage.AdapterInactive;
-import org.omg.PortableServer.POAPackage.ObjectNotActive;
-import org.omg.PortableServer.POAPackage.ServantAlreadyActive;
-import org.omg.PortableServer.POAPackage.WrongPolicy;
-
-import CHotelServerInterface.CIHotelServerManager;
-import CHotelServerInterface.CIHotelServerManagerHelper;
 import HotelServer.ReserveRecords.IRecordOperation;
-import HotelServerInterface.ErrorAndLogMsg;
-import HotelServerInterface.IHotelCentralAdmin;
 import HotelServerInterface.IHotelServer;
-import HotelServerInterface.IHotelServerManager;
-import HotelServerInterface.ErrorAndLogMsg.ErrorCode;
-import HotelServerInterface.ErrorAndLogMsg.MsgType;
+import common.ErrorAndLogMsg;
+import common.ErrorAndLogMsg.ErrorCode;
+import common.ErrorAndLogMsg.MsgType;
+import common.HotelServerTypes.*;
+import serverws.HotelServerWS;
 
 
-public class HotelServer implements IHotelServer, IHotelServerManager, Runnable {
+public class HotelServer implements IHotelServer, Runnable {
 
     final static String DEFAULT_LOG_FILE_PATH = "ServerLog.txt";
     
@@ -59,16 +42,16 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     // Count of available rooms per room type, across the days
     private EnumMap <RoomType, AvailableRoomCounts> roomCounts;
     
+    private long managerLoginToken = -1;
+    
     // Reservation records for different guests and all room types
     ReserveRecords resRecords;
     
     HotelProfile prof;
     
-    IHotelCentralAdmin adminObj; // the central admin object
-    
-    HotelServerImpl serverImpl; // wrapper of server for CORBA interface
-    HotelServerManagerImpl serverMgrImpl; // wrapper for manager interface
-    CIHotelServerManager serverMgrRef; // the manager referenece to be returned by login 
+        
+    HotelServerWS hotelServerWS; // wrapper of server for Web Service
+    Endpoint      endpointWS; 
 
     
     private static int MAX_RESERVATION_ID = 10000;
@@ -122,15 +105,12 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         this.queryPort = queryPort;
         
-        // Now create a CORBA server object as an additional interface
-        serverImpl = new HotelServerImpl (this);
-        serverMgrImpl = new HotelServerManagerImpl (this);
     }
     
 
     
     @Override
-    public HotelProfile getProfile () throws RemoteException {
+    public HotelProfile getProfile ()  {
         return prof;
     }
     
@@ -162,7 +142,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public ErrorCode reserveRoom (
             String guestID, RoomType roomType, 
-            SimpleDate checkInDate, SimpleDate checkOutDate, int[] resID) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate, int[] resID)  {
         
         Record newRec = new Record (
                 getNewReserveID(),
@@ -217,7 +197,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public ErrorCode cancelRoom (
             String guestID, RoomType roomType, 
-            SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate)  {
         
 
 
@@ -270,7 +250,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     
     @Override
     public Record[] getReserveRecords (
-            String guestID ) throws RemoteException {
+            String guestID )  {
         
         Record [] records = resRecords.getRecords(guestID);
         
@@ -287,21 +267,49 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         return records;
     }
     
-    public Record[] getServiceReport (final SimpleDate serviceDate) throws RemoteException {
+   public long loginAsManager (String managerID, String passWord) {
+    	
+    	final Random rand = new Random();
+    	
+        String logStr = getClientHostLog();
         
-        // Have to traverse the whole records.
+        if (managerID.equals(managerID) &&
+            passWord.equals(managerPassword))
+        {
+            ErrorAndLogMsg.LogMsg("Server object returned: ManagerID:" + managerID + logStr);
+            long token = rand.nextLong();
+            if (token < 0) token = - token;
+            if (token ==0 ) token = 10;
+            
+            managerLoginToken = token;
+            
+            return token;
+        }
+        else {
+            ErrorAndLogMsg.LogMsg("Server object NOT returned, auth failure: ManagerID:" + managerID + logStr);
+            return -1;
+        }
+    }
+    
+    @Override
+    public ErrorCode getServiceReport (
+    		long token, SimpleDate serviceDate,
+    		List <Record> list)  {
         
-        int totalRooms = prof.allTotalRooms;
-        
-        final ArrayList <Record> res = 
-                new ArrayList<Record> (totalRooms); // resulting records shall be less than
-                                                    // total rooms
+    	final SimpleDate date = serviceDate;
+    	final List <Record> resultList = list;
+    	
+        // check manager login token first
+    	if (token != managerLoginToken) {
+    		list.clear();
+    		return ErrorCode.MGR_LOGIN_FAILURE;
+    	}
         
         resRecords.traverseAllRecords(
                 new IRecordOperation() {
                     public void doOperation(Record r) {
-                        if (r.checkOutDate.equals(serviceDate)) 
-                            res.add(r);                    
+                        if (r.checkOutDate.equals(date)) 
+                        	resultList.add(r);                    
                     }
                 } );
         
@@ -310,89 +318,81 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                     getClientHostLog());
         }
         
-        return res.toArray(new Record[0]) ;
+        return ErrorCode.SUCCESS;
     }
     
-    public Record[] getStatusReport (final SimpleDate date) throws RemoteException {
+    public ErrorCode getStatusReport (
+    		long token,
+    		final SimpleDate statusDate,
+    		List <Record> list)  {
         
-        // Have to traverse the whole records.
         
-        int totalRooms = prof.allTotalRooms;
-        
-        final ArrayList <Record> res = 
-                new ArrayList<Record> (totalRooms); // resulting records shall be less than
-                                                    // total rooms
+    	final SimpleDate date = statusDate;
+    	final List <Record> resultList = list;
+    	
+        // check manager login token first
+    	if (token != managerLoginToken) {
+    		list.clear();
+    		return ErrorCode.MGR_LOGIN_FAILURE;
+    	}
         
         resRecords.traverseAllRecords(
                 new IRecordOperation() {
                     public void doOperation(Record r) {
                         if (!r.checkInDate.after(date) &&
                              r.checkOutDate.after(date))
-                            res.add(r);                    
+                        	resultList.add(r);    
                     }
                 } );
         
         if (logQueries) {
-            ErrorAndLogMsg.LogMsg("Get status report: Date:" + date.toString() +
+            ErrorAndLogMsg.LogMsg("Get status report: Date:" + statusDate.toString() +
                     getClientHostLog());
         }
         
-        return res.toArray(new Record[0]) ;
+        return ErrorCode.SUCCESS;
+
     }
 
     
-    //Export server to register server host:port, with name
-    public void registerServer (
-            String host,  // host name of registry
-            int port,     // port of registry
-            String name,  // name to bind
-            String adminName // the bind name of Hotel Admin object to register
-            ) throws InvalidName, ServantAlreadyActive, 
-            WrongPolicy, ObjectNotActive, 
-            org.omg.CosNaming.NamingContextPackage.InvalidName, 
-            NotFound, 
-            CannotProceed, AdapterInactive  {
+    // Start web service
+    public void startWebService (
+            int port,     // port of HTTP
+            int portMan,
+            String name,  // sub-domain name
+            String adminName // sub-domain name of Hotel Admin
+            ) {
         
         try {
-            // activiate the object
     
-            Properties props = new Properties();
-            props.put("org.omg.CORBA.ORBInitialPort", String.valueOf(port));
-            props.put("org.omg.CORBA.ORBInitialHost", host);
-            ORB orb = ORB.init((String[])null, props);
+        	// TODO: Deploy Webservice
             
-            POA rootPOA = POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
-            byte[] id = rootPOA.activate_object(serverImpl);
-            org.omg.CORBA.Object serverRef = rootPOA.id_to_reference(id);
+        	String urlHS = "http://localhost:" + port + "/" + prof.shortName;
+        	String urlHSMan = "http://localhost:" + portMan + "/" + prof.shortName;
+        	
+        	hotelServerWS = new HotelServerWS (this);
+        	
+        	if (hotelServerWS == null)
+        		ErrorAndLogMsg.GeneralErr(ErrorCode.INTERNAL_ERROR, "Hotel Web Service creation failure.");
+
+            endpointWS = Endpoint.publish(
+           		 urlHS,
+           		hotelServerWS);  
             
-            System.out.println ("Server IOR:" + serverRef);
+            if (endpointWS == null)
+            	throw new RuntimeException ("Web service publish failure.");
             
-            // bind to name service
-            NamingContextExt ctx =
-                    NamingContextExtHelper.narrow(orb.resolve_initial_references(
-                      "NameService"));
+            System.out.println("Web service for HotelServer created: " + urlHS);
             
-            NameComponent bindname[] = ctx.to_name(prof.shortName);
-            ctx.rebind(bindname, serverRef);
-            
-            System.out.println("Server " + prof.shortName + " bound successful!");
-            
-            // create manager object and activiate
-            id = rootPOA.activate_object(serverMgrImpl);
-            org.omg.CORBA.Object ref = rootPOA.id_to_reference(id);
-            System.out.println ("Server Manager IOR:" + ref);
-            
-            // narrow to a manager object that can be returned by getManager method
-            serverMgrRef = 
-                    CIHotelServerManagerHelper.narrow(
-                            rootPOA.servant_to_reference(serverMgrImpl));
-            
-            
-            rootPOA.the_POAManager().activate();           
+
         } catch (Exception e) {
             ErrorAndLogMsg.ExceptionErr(e, "Server registration failed");
         }
         
+    }
+    
+    public void stopWebServce () {
+    	endpointWS.stop();
     }
     
     public void printCounterTable (EnumMap <RoomType, ArrayList<int[]>> counts) {
@@ -473,8 +473,9 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     //      If missing, just look into the current dir of "config.properties".
     public static void main (String args[]) {
         
-        String regHost;
-        int regPort, queryPort;
+        //String regHost;
+        //int regPort;
+        int httpPort, httpManPort, queryPort;
         String name;
         
         FileInputStream input=null;
@@ -496,8 +497,10 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             prop.load(input);
 
             // get the registry and naming properties
-            regHost = prop.getProperty("RegistryHost");
-            regPort = Integer.parseInt(prop.getProperty("RegistryPort"));
+            //regHost = prop.getProperty("RegistryHost");
+            //regPort = Integer.parseInt(prop.getProperty("RegistryPort"));
+            httpPort = Integer.parseInt(prop.getProperty("HTTPPort"));
+            httpManPort = Integer.parseInt(prop.getProperty("HTTPManPort"));
             name = prop.getProperty("BindName");
             centralAdminName = prop.getProperty("AdminName");
             
@@ -594,7 +597,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         try {
             // Export the server
-            server.registerServer (regHost, regPort, name, centralAdminName);
+            server.startWebService (httpPort, httpManPort, name, centralAdminName);
         } catch (Exception e) {
             e.printStackTrace();
             return;
@@ -636,33 +639,11 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 
                 server.stopQueryListeningThread();
                 
+                server.stopWebServce();
+                
                 return;
             } 
         }
-    }
-    
-    public IHotelServerManager getManagerObject (String managerID, String passWord) throws RemoteException {
-        
-        // To be simplified, only check the guestID
-        
-        String logStr = getClientHostLog();
-        
-        if (managerID.equals(managerID) &&
-            passWord.equals(managerPassword))
-        {
-            ErrorAndLogMsg.LogMsg("Server object returned: ManagerID:" + managerID + logStr);
-            return (IHotelServerManager) this;
-        }
-        else {
-            ErrorAndLogMsg.LogMsg("Server object NOT returned, auth failure: ManagerID:" + managerID + logStr);
-            return null;
-        }
-        
-    }
-    
-    // only called from HotelServerImpl, not an exposed interface
-    public CIHotelServerManager getManagerObject_Corba() {
-        return this.serverMgrRef;
     }
     
     
@@ -712,12 +693,6 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         if (listenSocket!=null)
             listenSocket.close();
             
-        try {
-            if (adminObj!=null)
-                adminObj.unRegisterHotelQuerySocket(queryPort);
-        } catch (RemoteException e) {
-            ErrorAndLogMsg.ExceptionErr(e, "Exception when un-registering socket");
-        }
 
     }
     
@@ -1052,7 +1027,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public List<Availability> checkAvailability (
             String guestID, RoomType roomType,
-            SimpleDate checkInDate, SimpleDate checkOutDate ) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate )  {
         
         String regHost;
         int regPort, queryPort;
@@ -1868,7 +1843,6 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             return true;
         
     }
-
 
 
 

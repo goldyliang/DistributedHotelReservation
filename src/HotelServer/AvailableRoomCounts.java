@@ -4,12 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-//import java.util.Calendar;
-//import java.util.Date;
-import miscutil.SimpleDate;
-
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import common.HotelServerTypes.*;
 
 /*
  * Store data of the available rooms (for one hotel and one type of room only)

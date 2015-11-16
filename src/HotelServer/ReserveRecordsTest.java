@@ -6,9 +6,7 @@ import java.util.Arrays;
 //import java.util.Date;
 
 import HotelServer.ReserveRecords;
-import HotelServerInterface.IHotelServer.RoomType;
-import HotelServerInterface.IHotelServer.Record;
-import miscutil.SimpleDate;
+import common.HotelServerTypes.*;
 
 import org.junit.Test;
 

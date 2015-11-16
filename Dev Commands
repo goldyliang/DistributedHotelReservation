@@ -1,0 +1,3 @@
+wsimport -d src -p client.webservice -clientjar wsclient.jar -keep http://localhost:8050/Gordon?wsdl
+
+

@@ -13,9 +13,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import miscutil.SimpleDate;
-
 import org.junit.Test;
+
+import common.HotelServerTypes.*;
 
 public class AvailableRoomCountsTest {
 
@@ -46,28 +46,56 @@ public class AvailableRoomCountsTest {
         try {
             d1 = SimpleDate.parse("2015/12/5");
             d2 = SimpleDate.parse("2015/12/10");
+            assertTrue ( d2.after(d1));
+            assertFalse ( d2.before(d1));
             assertEquals (5, SimpleDate.dateDiff(d1,d2));
             
             d1 = SimpleDate.parse("2015/10/29");
             d2 = SimpleDate.parse("2015/11/2");
+            assertTrue ( d2.after(d1));
+            assertFalse ( d2.before(d1));
             assertEquals (4, SimpleDate.dateDiff(d1,d2));
             
           //  assertEquals (4, AvailableRoomCounts.dateDiff1(d1,d2));
             
             d1 = SimpleDate.parse("2015/3/1");
             d2 = SimpleDate.parse("2015/3/10");
+            assertTrue ( d2.after(d1));
+            assertFalse ( d2.before(d1));
             assertEquals (9, SimpleDate.dateDiff(d1,d2));
          //   assertEquals (8, AvailableRoomCounts.dateDiff1(d1,d2));
             
             d1 = SimpleDate.parse("2015/10/29");
             d2 = SimpleDate.parse("2016/1/7");
+            assertTrue ( d2.after(d1));
+            assertFalse ( d2.before(d1));
             assertEquals (70, SimpleDate.dateDiff(d1,d2));
       //      assertEquals (-70, AvailableRoomCounts.dateDiff(d2,d1));
             
             d1 = SimpleDate.parse("2015/10/29");
             d2 = SimpleDate.parse("2016/3/17");
+            assertTrue ( d2.after(d1));
+            assertFalse ( d2.before(d1));
             // error here, not going to fix in this program
             assertEquals (140, SimpleDate.dateDiff(d1,d2));
+            
+            d1 = SimpleDate.parse("2015/12/1");
+            d2 = SimpleDate.parse("2015/12/1");
+            assertFalse ( d2.after(d1));
+            assertFalse ( d2.before(d1));
+            // error here, not going to fix in this program
+            assertEquals (0, SimpleDate.dateDiff(d1,d2));
+            
+            d1 = SimpleDate.parse("2015/11/30");
+            d2 = SimpleDate.parse("2015/12/1");
+            assertTrue ( d2.after(d1));
+            assertFalse ( d2.before(d1));
+            assertFalse (d1.after(d2));
+            assertTrue (d1.before(d2));
+            // error here, not going to fix in this program
+            assertEquals (1, SimpleDate.dateDiff(d1,d2));
+            
+            
 
 
 
