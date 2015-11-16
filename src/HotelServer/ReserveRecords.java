@@ -2,7 +2,7 @@ package HotelServer;
 
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Date;
+//import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -10,6 +10,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import miscutil.SimpleDate;
 import HotelServerInterface.IHotelServer.Record;
 import HotelServerInterface.IHotelServer.RoomType;
 
@@ -65,8 +66,9 @@ public class ReserveRecords {
     // Delete one or partial of the reservation
     // If the record is found within the range of dates,
     //    update the record or delete it, and return true;
+    //    use newResID for the new record if the original one is splitted
     // If no any record found, do nothing and return false;
-    public boolean cancelReservation (String guestID, Record record) {
+    public boolean cancelReservation (String guestID, Record record, int newResID) {
         List<Record> rec_list = mapRecords.get(guestID);
         if (rec_list == null) return false;
         
@@ -128,11 +130,12 @@ public class ReserveRecords {
                     //The cancel dates in the middle, split into two records
                     
                     //Current record reflect the earlier part
-                    Date o_out = rec.checkOutDate;
+                    SimpleDate o_out = rec.checkOutDate;
                     rec.checkOutDate = record.checkInDate;
                     
                     //Add a record reflecting the later part
                     Record r_new = new Record (
+                            newResID, // use new ID provided
                             guestID,
                             rec.shortName,
                             rec.roomType, 
@@ -211,6 +214,37 @@ public class ReserveRecords {
         }
         
         return ret;
+    }
+    
+    public Record findRecord (String guestID, int resID) {
+        List <Record> ll = mapRecords.get(guestID);
+        
+        if (ll==null) return null;
+        
+        synchronized (ll) {
+            for (Record r:ll)
+                if (r.resID == resID)
+                    return r;
+        }
+    
+        return null;
+    }
+    
+    public Record findRecord (String guestID, RoomType type, 
+            SimpleDate inDate, SimpleDate outDate) {
+        List <Record> ll = mapRecords.get(guestID);
+        
+        if (ll==null) return null;
+        
+        synchronized (ll) {
+            for (Record r:ll)
+                if (r.roomType == type &&
+                    r.checkInDate.equals(inDate) &&
+                    r.checkOutDate.equals(outDate))
+                    return r;
+        }
+    
+        return null;
     }
     
     interface IRecordOperation {

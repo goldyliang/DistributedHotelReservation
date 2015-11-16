@@ -1,0 +1,98 @@
+module CHotelServerInterface {
+	
+	// Naming convention:
+	// To be as much as compatible with current RMI based java code:
+	// All IDL type is named Cxxx, so as to be different as the one IDL generated
+	// Because the classes can not be interchangable with the existing java code.
+	// And a convertion utilitity is designed to convert them back and forth
+
+	enum CRoomType {ROOM_SINGLE, ROOM_DOUBLE, ROOM_FAMILY};
+	
+	typedef long CERROR_CODE ;
+	
+	struct CDate {
+		short year;
+		short month;
+		short day;
+	};
+
+	struct CAvailability {
+		string hotelName;
+		unsigned short availCount;
+		float rate;
+	};
+	typedef sequence <CAvailability> CListAvailability;
+	
+	typedef unsigned long CReserveID;
+
+	struct CRecord {
+		CReserveID reserveID; 
+		string guestID;
+		string hotelName;
+		CRoomType roomType;
+		CDate checkInDate;
+		CDate checkOutDate;
+		float rate;
+	};
+	typedef sequence <CRecord> CListRecord;
+	
+
+	
+	struct CINetSocketAddress {
+		string host;
+		unsigned short port;
+	};
+	typedef sequence<CINetSocketAddress> CListSockets;
+
+	struct CHotelProfile {
+		string shortName;
+		string fullName;
+		string descText;
+		sequence <short> totalRooms;
+		sequence <float> rates;
+	};
+
+	interface CIHotelServerManager {
+		
+		CERROR_CODE getServiceReport (in CDate serviceDate, out CListRecord records);
+		CERROR_CODE getStatusReport (in CDate serviceDate, out CListRecord records);
+	};
+		
+		
+	interface CIHotelServer {
+
+		CERROR_CODE getProfile (out CHotelProfile profile);
+			
+		CERROR_CODE reserveHotel (in string guestID, in CRoomType roomType, 
+						         in CDate checkInDate, in CDate checkOutDate, 
+							out CReserveID reservationID);
+
+		CERROR_CODE cancelHotel (in string guestID, in CRoomType roomType, 
+						         in CDate checkInDate, in CDate checkOutDate);
+						        
+		CERROR_CODE checkAvailability (in string guestID, in CRoomType roomType,
+		                              in CDate checkInDate, in CDate checkOutDate,
+		                              out CListAvailability listAvail);
+		                              
+		CERROR_CODE getManagerObject (in string manageID, in string passCode,
+		                              out CIHotelServerManager serverManager);
+		                              
+		CERROR_CODE transferReservation (in string guestID, in CReserveID reservationID, 
+						in CRoomType roomType,
+						in CDate checkInDate, in CDate checkOutDate,
+		                                in string targetHotel,
+						out CReserveID newResID);
+		                                
+		CERROR_CODE addQuerySockets (in CListSockets sockets);
+		
+		CERROR_CODE deleteQuerySockets (in CListSockets sockets); 
+						         
+	};
+	
+	 interface CIHotelCentralAdmin {
+		CERROR_CODE registerServer (in CIHotelServer server, in CINetSocketAddress socket);
+		CERROR_CODE unregisterServer (in CIHotelServer server);
+
+	}; 
+	
+};

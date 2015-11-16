@@ -8,34 +8,40 @@ import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.TreeMap;
 
-import javax.naming.Binding;
-import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NameClassPair;
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
-import javax.naming.event.EventContext;
-import javax.naming.event.NamespaceChangeListener;
-import javax.naming.event.NamingEvent;
-import javax.naming.event.NamingExceptionEvent;
+import org.omg.CORBA.ORB;
+import org.omg.CosNaming.BindingType;
+import org.omg.CosNaming.Binding;
+import org.omg.CosNaming.BindingIteratorHolder;
+import org.omg.CosNaming.BindingListHolder;
+import org.omg.CosNaming.NameComponent;
+import org.omg.CosNaming.NamingContextExt;
+import org.omg.CosNaming.NamingContextExtHelper;
+import org.omg.CosNaming.NamingContextHelper;
 
+import CHotelServerInterface.CIHotelServer;
+import CHotelServerInterface.CIHotelServerHelper;
 import HotelServer.HotelServer;
 import HotelServerInterface.*;
 import HotelServerInterface.ErrorAndLogMsg.MsgType;
+import HotelServerInterface.IHotelServer.RoomType;
+import miscutil.SimpleDate;
+import miscutil.Utilities;
 import HotelServerInterface.IHotelServer.*;
 import HotelServerInterface.ErrorAndLogMsg.ErrorCode;
+import HotelServerInterface.IHotelServer.Record;
 
 
 public class HotelClient {
 
-    Registry reg;
+    //Registry reg;
     
+    NamingContextExt nc;
     
     public class HotelServerWrapper {
         public IHotelServer server;
@@ -59,22 +65,31 @@ public class HotelClient {
         return servers.values().iterator();
     }
     
+    public HotelServerWrapper[] getServers() {
+        return servers.values().toArray(new HotelServerWrapper[0]);
+    }
+    
     public ErrorAndLogMsg Initialize (String host, int port) {
         
         try {
-            reg = LocateRegistry.getRegistry(host, port);
-        } catch (RemoteException e) {
-            return ErrorAndLogMsg.ExceptionErr (e, 
-                    "Remote RMI registry " + host + ":" + port + " could not be achieved.");
+            Properties props = new Properties();
+            props.put("org.omg.CORBA.ORBInitialPort", "1050");
+            props.put("org.omg.CORBA.ORBInitialHost", "localhost");
+            ORB orb = ORB.init(new String[0], props);
+            
+            nc = NamingContextExtHelper.narrow(orb.resolve_initial_references(
+                      "NameService"));
+            
+            servers = new TreeMap<String, HotelServerWrapper> ();
+            
+            ErrorAndLogMsg.InfoMsg("Hotel Client initialized.").printMsg();
+            
+            ErrorAndLogMsg m = getHotelServerObjects();
+            
+            return m;
+        } catch (Exception e) {
+            return ErrorAndLogMsg.ExceptionErr(e, "Client initilization failed");
         }
-        
-        servers = new TreeMap<String, HotelServerWrapper> ();
-        
-        ErrorAndLogMsg.InfoMsg("Hotel Client initialized.").printMsg();
-        
-        ErrorAndLogMsg m = getHotelServerObjects();
-        
-        return m;
     }
     
     //work silently (a new thread) in background to periodically scan and retrieve new
@@ -128,6 +143,12 @@ public class HotelClient {
     // return Err if any error
     ErrorAndLogMsg getSingleHotelServerObject (String name, boolean reGet) {
         try {
+            org.omg.CORBA.Object serverRef = nc.resolve_str(name);
+            
+            System.out.println ("Retrieved server IOR:" + serverRef);
+
+            
+            CIHotelServer obj = CIHotelServerHelper.narrow( serverRef );
             
             HotelServerWrapper srv;
             
@@ -135,33 +156,27 @@ public class HotelClient {
             
             if (srv==null || reGet) {
                 // new name
-                Remote stb = reg.lookup(name);
                 
-                IHotelServer server = null;
+                IHotelServer server = new HotelServerProxy (obj);
                 
-                if (stb instanceof IHotelServer) {
+               // Remote stb = reg.lookup(name);
                 
-                    try {
-                        server = (IHotelServer) stb;
-                    } catch (ClassCastException e) {
-                        // not a right class, just ignore it
-                    }
+                //IHotelServer server = null;
+                
+                if (server!=null) {
+                    srv = new HotelServerWrapper();
+                    srv.server = server;
+                    srv.prof = server.getProfile();                        
                     
-                    if (server!=null) {
-                        srv = new HotelServerWrapper();
-                        srv.server = server;
-                        srv.prof = server.getProfile();                        
-                        
-                        synchronized (servers) { servers.put(name, srv); }
-                    } 
-                }
+                    synchronized (servers) { servers.put(name, srv); }
+                } 
                 
                 return ErrorAndLogMsg.LogMsg("Server object retrieved/updated.");
                 
             } else {
                 // old name
                 // Try to get the profile and simply update
-                srv.prof = srv.server.getProfile();
+                //srv.prof = srv.server.getProfile();
                 return null;
             }
         } catch (Exception e) {
@@ -228,20 +243,22 @@ public class HotelClient {
 
         return null; */
         
-        String[] nameList = null;
+        BindingListHolder bl = new BindingListHolder();
+        BindingIteratorHolder bi = new BindingIteratorHolder();
         
-        try {
-            nameList = reg.list();
-        } catch (Exception e) {
-            return ErrorAndLogMsg.ExceptionErr(e, 
-                    "Registry name list failure.");
-        }                
-    
+        nc.list(100, bl, bi);
+        
+        
+        Binding [] bindings = bl.value;
+        
         int new_servers = 0;
-        
-        for (String name:nameList) {
+
+        for (Binding bind: bindings) {
+           
+            if (  bind.binding_type != BindingType.nobject)
+                continue;
             
-            ErrorAndLogMsg m = getSingleHotelServerObject (name, false); // no re-get
+            ErrorAndLogMsg m = getSingleHotelServerObject (bind.binding_name[0].id, false);
             
             if (m!=null && !m.anyError())
                 new_servers ++;
@@ -256,8 +273,9 @@ public class HotelClient {
             String guestID,
             String hotelName,
             RoomType type,
-            Date checkInDate,
-            Date checkOutDate) {
+            SimpleDate checkInDate,
+            SimpleDate checkOutDate,
+            int[] newID) {
         
         HotelServerWrapper server_wrap = servers.get(hotelName);
         
@@ -283,12 +301,28 @@ public class HotelClient {
         
         try {
             
-            String sRec = new Record(guestID, hotelName, type, checkInDate, checkOutDate, 0).toOneLineString();
+            Record newRec = new Record(0,
+                    guestID, hotelName, type, 
+                    checkInDate, 
+                    checkOutDate, 0);
             
-            ErrorCode err = server.reserveRoom(guestID, type, checkInDate, checkOutDate);
+            
+            int [] idHolder = new int[1];
+            
+            ErrorCode err = server.reserveRoom(
+                    guestID, type, checkInDate, checkOutDate,
+                    idHolder);
+            
+            newRec.resID = idHolder[0];
+            
+            String sRec = newRec.toOneLineString();
             
             if (err == ErrorCode.SUCCESS) {
                 ErrorAndLogMsg.LogMsg("Reserve success: " + sRec).printMsg();
+                
+                if (newID!=null)
+                    newID[0] = newRec.resID;
+                
                 return null;
             } else {
                 ErrorAndLogMsg.LogMsg("Reserve failure " + err.toString() + ":" + sRec ).printMsg();
@@ -297,13 +331,12 @@ public class HotelClient {
             
         } catch (RemoteException e) {
             ErrorAndLogMsg m = ErrorAndLogMsg.ExceptionErr(e, "Remote Exception when invoking reserveRoom");
-            m.printMsg();
             
             // Try to retrieve server object again and retry
             ErrorAndLogMsg m1 = getSingleHotelServerObject(hotelName, true);
             
             if (m1!=null && !m1.anyError())
-                return reserveHotel( guestID, hotelName, type, checkInDate, checkOutDate);
+                return reserveHotel( guestID, hotelName, type, checkInDate, checkOutDate, newID);
             else 
                 return m;
         }
@@ -313,8 +346,8 @@ public class HotelClient {
             String guestID,
             String hotelName,
             RoomType type,
-            Date checkInDate,
-            Date checkOutDate) {
+            SimpleDate checkInDate,
+            SimpleDate checkOutDate) {
         
         HotelServerWrapper server_wrap = servers.get(hotelName);
         
@@ -326,7 +359,8 @@ public class HotelClient {
         
         try {
             
-            String sRec = new Record(guestID, hotelName, type, checkInDate, checkOutDate, 0).toOneLineString();
+            String sRec = new Record(0,
+                    guestID, hotelName, type, checkInDate, checkOutDate, 0).toOneLineString();
 
             ErrorCode err = server.cancelRoom(guestID, type, checkInDate, checkOutDate);
             
@@ -356,6 +390,9 @@ public class HotelClient {
         try {
             List <Availability> avList = server.checkAvailability(
                     rec.guestID,rec.roomType, rec.checkInDate, rec.checkOutDate);
+            
+            if (avList==null)
+                return ErrorAndLogMsg.GeneralErr(ErrorCode.ROOM_UNAVAILABLE, "No room availabile.");
             
             for (Availability av : avList)
                 avails.add(av);
@@ -446,7 +483,7 @@ public class HotelClient {
     
     public ErrorAndLogMsg getServiceReport (
             String hotel, 
-            Date serviceDate,
+            SimpleDate serviceDate,
             Collection <Record> records) {
         HotelServerWrapper server_wrapper = null;
                 
@@ -470,7 +507,8 @@ public class HotelClient {
         
         try {
             Record[] recs = mgr.getServiceReport(serviceDate);
-            records.addAll( Arrays.asList(recs ));
+            if (recs!=null)
+                records.addAll( Arrays.asList(recs ));
         } catch (Exception e) {
             return ErrorAndLogMsg.ExceptionErr(e, 
                     "Exception when getting service records");
@@ -483,7 +521,7 @@ public class HotelClient {
     
     public ErrorAndLogMsg getStatusReport (
             String hotel, 
-            Date date,
+            SimpleDate date,
             Collection <Record> records) {
         HotelServerWrapper server_wrapper = null;
                 
@@ -507,7 +545,7 @@ public class HotelClient {
         
         try {
             Record[] recs = mgr.getStatusReport(date);
-            records.addAll( Arrays.asList(recs ));
+            if (recs!=null) records.addAll( Arrays.asList(recs ));
         } catch (Exception e) {
             return ErrorAndLogMsg.ExceptionErr(e, 
                     "Exception when getting service records");
@@ -518,5 +556,63 @@ public class HotelClient {
         return null;
     } 
     
+    // return resID by filling resID[0]
+    public ErrorAndLogMsg transferRoom (
+            String guestID,
+            int[] resID,
+            String hotelName,
+            RoomType type,
+            SimpleDate checkInDate,
+            SimpleDate checkOutDate,
+            String targetHotel) {
+        
+        HotelServerWrapper server_wrap = servers.get(hotelName);
+        
+        if (server_wrap==null) {
+            // can not get the object, return error
+            return ErrorAndLogMsg.GeneralErr(ErrorCode.HOTEL_NOT_FOUND, 
+                "No hotel server found by name " + hotelName); // Hotel not found
+        }
+            
+        IHotelServer server = server_wrap.server;
+        
+        try {
+            
+            Record newRec = new Record(0,
+                    guestID, targetHotel, type, 
+                    checkInDate, 
+                    checkOutDate, 0);
+            
+            
+            int [] idHolder = new int[1];
+            
+            ErrorCode err = server.transferRoom(
+                    guestID, 
+                    resID[0],
+                    type, checkInDate, checkOutDate,
+                    targetHotel,
+                    idHolder);
+            
+            newRec.resID = idHolder[0];
+            resID[0] = idHolder[0];
+            
+            String sRec = newRec.toOneLineString();
+            
+            if (err == ErrorCode.SUCCESS) {
+                ErrorAndLogMsg.LogMsg("Transfer success, new record: " + sRec).printMsg();
+                
+                return null;
+            } else {
+                ErrorAndLogMsg.LogMsg("Reserve failure " + err.toString() + ":" + sRec ).printMsg();
+                return ErrorAndLogMsg.GeneralErr(err, "Error invoking transferRoom");
+            }
+            
+        } catch (Exception e) {
+            ErrorAndLogMsg m = ErrorAndLogMsg.ExceptionErr(e, "Remote Exception when invoking reserveRoom");
+            m.printMsg();
+        }
+        
+        return null;
+    }
     
 }

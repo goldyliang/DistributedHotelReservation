@@ -3,14 +3,11 @@ package HotelServer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+//import java.util.Calendar;
+//import java.util.Date;
+import miscutil.SimpleDate;
+
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -22,17 +19,17 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class AvailableRoomCounts {
 
     // Total number of rooms
-    int totalRooms;
+    private int totalRooms;
     
     // The startDate of the room availability counts
-    Date startDate;
+    private SimpleDate startDate;
     
     // Availability counts per day
     // The integer of index 0 is the count of the startDate,
     // Then the counts are stored day by day.
     // For the dates beyond the end of the list, no booking yet (maximum availability)
     // Use int[] as a simple object composed by one integer.
-    ArrayList <int[]> availCounts;
+    private ArrayList <int[]> availCounts;
     
     // Read write lock to sync the operation between
     //    > increase/decrease of a count, and 
@@ -44,19 +41,14 @@ public class AvailableRoomCounts {
     // Synchronization objects of the availability counter values
     // For each integer of availCounts[i], the update
     // is synchronized by the object of syncObj[i % NUM_SYNC_OBJS]
-    final int NUM_SYNC_OBJS = 4;
-    Object[] syncObj;
+    private final int NUM_SYNC_OBJS = 4;
+    private Object[] syncObj;
     
     public AvailableRoomCounts (int totalRooms, int days) {
         this.totalRooms = totalRooms;
         availCounts = new ArrayList <int[]> (days);
         
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");      
-        try {
-            this.startDate = sdf.parse(sdf.format(new Date()));
-        } catch (ParseException e) {
-            e.printStackTrace();
-        } // set to today
+        this.startDate = new SimpleDate(); // today
         
         for (int i=0; i<days; i++) {
             int[] n = new int[1];
@@ -70,7 +62,7 @@ public class AvailableRoomCounts {
             syncObj[i] = new Object();
     }
     
-    // Time difference between d1 and d2. 
+/*   // Time difference between d1 and d2. 
     // Supposed d2 >= d1
     // Return int instead as the value shall not exceed the maximum integer
     public static int dateDiff1 (Date d1, Date d2)
@@ -108,9 +100,9 @@ public class AvailableRoomCounts {
 
             return extraDays - dayOne.get(Calendar.DAY_OF_YEAR) + dayTwo.get(Calendar.DAY_OF_YEAR);
         }
-    }
+    } */
     
-    public static int dateDiff (Date d1, Date d2) {
+/*    public static int dateDiff (Date d1, Date d2) {
         Calendar dayOne = Calendar.getInstance();
         dayOne.setTime(d1);
         Calendar dayTwo = Calendar.getInstance();
@@ -140,14 +132,14 @@ public class AvailableRoomCounts {
             return extraDays - dayOne.get(Calendar.DAY_OF_YEAR) + dayTwo.get(Calendar.DAY_OF_YEAR);
         }
     }
-    
+    */
     
     // Get a count of specified date
-    int getCount (Date dt) {
+    int getCount (SimpleDate dt) {
   
         r_lock.lock();
         
-        int i = dateDiff (this.startDate, dt);
+        int i = SimpleDate.dateDiff (this.startDate, dt);
         int cnt = 0;
         
         synchronized (syncObj [i % NUM_SYNC_OBJS]) 
@@ -160,6 +152,10 @@ public class AvailableRoomCounts {
         return cnt;
     }
     
+    public int getSize() {
+        return availCounts.size();
+    }
+
     // Operation of decrease the avail count indexed by idx
     // Return false if the count is already zero.
     // True if not zero, and the count decrease by one
@@ -231,14 +227,16 @@ public class AvailableRoomCounts {
         }
     }
     
-    boolean increaseSizeTillDate (Date dt_end) {
+    boolean increaseSizeTillDate (SimpleDate dt_end) {
         
-        Date dt = getBookingEndDate();
+        /*Date dt = getBookingEndDate();
         Calendar cal = Calendar.getInstance();
         cal.setTime(dt);
         
         Calendar cal_end = Calendar.getInstance();
-        cal_end.setTime(dt_end);
+        cal_end.setTime(dt_end); */
+        
+        SimpleDate dt = new SimpleDate(); // today
         
         //As we are changing the structure, apply the write lock
         w_lock.lock();
@@ -246,12 +244,12 @@ public class AvailableRoomCounts {
         try {
 
             
-            while (cal.before(cal_end)) {
+            while (dt.before(dt_end)) {
                 int [] a = new int[1];
                 a[0] = totalRooms;
                 availCounts.add(a);
                 
-                cal.add(Calendar.DATE, 1);
+                dt.nextDay();
             }
             
             return true;
@@ -264,9 +262,9 @@ public class AvailableRoomCounts {
         
     }
     
-    public boolean decrementDays (Date inDate, Date outDate) {
-        int idx = dateDiff (startDate, inDate);
-        int days = dateDiff (inDate, outDate);
+    public boolean decrementDays (SimpleDate inDate, SimpleDate outDate) {
+        int idx = SimpleDate.dateDiff (startDate, inDate);
+        int days = SimpleDate.dateDiff (inDate, outDate);
         
         if (idx<0) throw new RuntimeException ("Error: query inDate<startDate");
         if (days <=0) throw new RuntimeException("Error: query outDate<=inDate");
@@ -309,9 +307,9 @@ public class AvailableRoomCounts {
         return success;
     }
     
-    public boolean incrementDays (Date inDate, Date outDate){
-        int idx = dateDiff (startDate, inDate);
-        int days = dateDiff (inDate, outDate);
+    public boolean incrementDays (SimpleDate inDate, SimpleDate outDate){
+        int idx = SimpleDate.dateDiff (startDate, inDate);
+        int days = SimpleDate.dateDiff (inDate, outDate);
         
         if (idx<0) throw new RuntimeException ("Error: query inDate<startDate");
         if (days <=0) throw new RuntimeException("Error: query outDate<=inDate");
@@ -357,9 +355,9 @@ public class AvailableRoomCounts {
         return success;
     }
     
-    public int query (Date inDate, Date outDate) {
-        int idx = dateDiff (startDate, inDate);
-        int days = dateDiff (inDate, outDate);
+    public int query (SimpleDate inDate, SimpleDate outDate) {
+        int idx = SimpleDate.dateDiff (startDate, inDate);
+        int days = SimpleDate.dateDiff (inDate, outDate);
         
         if (idx<0) throw new RuntimeException ("Error: query inDate<startDate");
         if (days <=0) throw new RuntimeException("Error: query outDate<=inDate");
@@ -391,24 +389,21 @@ public class AvailableRoomCounts {
         return cnt;
     }
     
-    public Date getBookingStartDate () {
-        return startDate;
+    public SimpleDate getBookingStartDate () {
+        return startDate.clone();
     }
     
-    public Date getBookingEndDate () {
+    public SimpleDate getBookingEndDate () {
         
         int len = availCounts.size();
         
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(startDate);
-        
-        cal.add(Calendar.DATE, len-1);
-        
-        return cal.getTime();
+        SimpleDate end = new SimpleDate (startDate);
+        end.forwardDay(len-1);
+        return end;
     }
     
 
-    public boolean delteTillDate (Date date) {
+    public boolean delteTillDate (SimpleDate date) {
         return true;
     }
     

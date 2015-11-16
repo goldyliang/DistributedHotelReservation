@@ -1,6 +1,7 @@
-TO run rmiregisry
+TO run naming service
 
- rmiregistry -J-Djava.rmi.server.codebase=file:/home/gordon/workspace/DHRS/bin/ &
+orbd -ORBInitialPort 1050&
+
 
 To run server
 

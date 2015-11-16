@@ -3,8 +3,8 @@ package HotelServerInterface;
 import java.io.Serializable;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+//import java.util.Date;
+import miscutil.SimpleDate;
 import java.util.EnumMap;
 import java.util.List;
 import HotelServerInterface.ErrorAndLogMsg.ErrorCode;
@@ -27,7 +27,7 @@ public interface IHotelServer extends Remote {
 		MGR_LOGIN_FAILURE
 	} */
 
-	public final String dateFormat = "yyyy/MM/dd";
+	//public final String dateFormat = "yyyy/MM/dd";
 	
 	@SuppressWarnings("serial")
 	public static class Availability implements Serializable {
@@ -46,23 +46,27 @@ public interface IHotelServer extends Remote {
 		/**
 		 * 
 		 */
+	    public int resID;
 		public String guestID; 
 		public String shortName;
 		public RoomType roomType;
-		public Date checkInDate; 
-		public Date checkOutDate;
+		public SimpleDate checkInDate; 
+		public SimpleDate checkOutDate;
 		public float rate; // negative if not confirmed
 		
 		public Record () {
 			super();
 		}
 		
-		public Record (String guestID, 
+		public Record (
+		        int resID,
+		        String guestID, 
 				String shortName, 
 				RoomType roomType,
-				Date checkInDate,
-				Date checkOutDate,
+				SimpleDate checkInDate,
+				SimpleDate checkOutDate,
 				float rate) {
+		    this.resID = resID;
 			this.guestID = guestID;
 			this.shortName = shortName;
 			this.roomType = roomType;
@@ -72,18 +76,17 @@ public interface IHotelServer extends Remote {
 		}
 		
 		public Record (Record r) {
-			this (r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate, r.rate);
+			this (r.resID, r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate, r.rate);
 		}
 		
 		public String toString() {
-			String s = "GuestID:" + guestID + "\n";
+			String s = "Reservation ID:" + resID + "\n";
+			s = s + "GuestID:" + guestID + "\n";
 			s = s + "Hotel Short Name:" + shortName + "\n";
 			s = s + "Room Type:" + roomType.toString() + "\n";
-			
-			SimpleDateFormat df = new SimpleDateFormat (dateFormat);
-			
-			s = s + "Check in Date:" + df.format(checkInDate) + "\n";
-			s = s + "Check out Date:" + df.format(checkOutDate) + "\n";
+						
+			s = s + "Check in Date:" + checkInDate + "\n";
+			s = s + "Check out Date:" + checkOutDate + "\n";
 			
 			if (rate>0)
 				s = s + "Rate:" + rate + "\n";
@@ -92,14 +95,13 @@ public interface IHotelServer extends Remote {
 		}
 		
 		public String toOneLineString() {
-			String s = "GuestID:" + guestID;
+			String s = "ResID:" + resID;
+			s = s + ";GuestID:" + guestID;
 			s = s + ";Hotel:" + shortName;
 			s = s + ";Type:" + roomType.toString();
-			
-			SimpleDateFormat df = new SimpleDateFormat (dateFormat);
-			
-			s = s + ";In:" + df.format(checkInDate);
-			s = s + ";Out:" + df.format(checkOutDate);
+						
+			s = s + ";In:" + checkInDate;
+			s = s + ";Out:" + checkOutDate;
 			
 			s = s + ";Rate:" + rate;
 			
@@ -123,20 +125,29 @@ public interface IHotelServer extends Remote {
 	
 	public HotelProfile getProfile () throws RemoteException;
 	
+	// Note: it is now not conformed with RMI interface to return long by parameter
+	// this only works for CORBA
 	public ErrorCode reserveRoom (
 			String guestID, RoomType roomType, 
-			Date checkInDate, Date checkOutDate) throws RemoteException;
+			SimpleDate checkInDate, SimpleDate checkOutDate, int[] resID) throws RemoteException;
 	
 	public ErrorCode cancelRoom (
 			String guestID, RoomType roomType, 
-			Date checkInDate, Date checkOutDate) throws RemoteException;
+			SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException;
 	
 	public List<Availability> checkAvailability (
 			String guestID, RoomType roomType,
-			Date checkInDate, Date checkOutDate) throws RemoteException;
+			SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException;
 	
 	public Record[] getReserveRecords (
 			String guestID ) throws RemoteException;
+	
+	public ErrorCode transferRoom (
+	        String guestID, int reservationID,
+	        RoomType roomType,
+	        SimpleDate checkInDate, SimpleDate checkOutDate,
+	        String targetHotel,
+	        int[] newResID);
 	
 
 	

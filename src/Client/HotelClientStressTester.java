@@ -6,6 +6,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
 
+import miscutil.SimpleDate;
+import Client.HotelClient.HotelServerWrapper;
 import HotelServerInterface.ErrorAndLogMsg;
 import HotelServerInterface.ErrorAndLogMsg.ErrorCode;
 import HotelServerInterface.ErrorAndLogMsg.MsgType;
@@ -13,7 +15,7 @@ import HotelServerInterface.IHotelServer.Availability;
 import HotelServerInterface.IHotelServer.Record;
 import HotelServerInterface.IHotelServer.RoomType;
 
-public class HotelClientStressTester {
+public class HotelClientStressTester implements Runnable {
 
     HotelClient client;
     
@@ -24,11 +26,14 @@ public class HotelClientStressTester {
     
     Random rand;
     
-    String[] serverNames = {"Gordon", "Star", "Motel"};
+    String[] serverNames;// = {"Gordon", "Star", "Motel"};
     
     HashMap <String, ArrayList<Record>> records;
     //ArrayList <Record> records;
     
+   
+    int minutes;
+   
     Date getDateByDelta (Date d, int delta)
     {
         Calendar cal = Calendar.getInstance();
@@ -57,16 +62,16 @@ public class HotelClientStressTester {
         int i = rand.nextInt(totalDays);
         int j = i + 1 + rand.nextInt (totalDays-i);
         
-        Date today = new Date();
+        SimpleDate today = new SimpleDate();
         
-        Date inDate = getDateByDelta (today, i);
-        Date outDate = getDateByDelta (today, j);
+        SimpleDate inDate = SimpleDate.getDateByDelta (today, i);
+        SimpleDate outDate = SimpleDate.getDateByDelta (today, j);
         
         RoomType type = RoomType.values()[rand.nextInt(RoomType.values().length)];
         
         String hotel = serverNames[rand.nextInt(serverNames.length)];
         
-        return new Record (guestID, hotel, type, inDate, outDate, 0);
+        return new Record (0, guestID, hotel, type, inDate, outDate, 0);
     }
     
     
@@ -86,8 +91,12 @@ public class HotelClientStressTester {
         
         Record r = getRandomRecord();
         
+        int id[] = new int[1];
+        
         ErrorAndLogMsg m = client.reserveHotel(
-                r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate);
+                r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate, id);
+        
+        r.resID = id[0];
         
         if (m==null || !m.anyError()) {
             ArrayList <Record> list = records.get(r.guestID);
@@ -166,30 +175,72 @@ public class HotelClientStressTester {
         
         int return_cnt = 0;
 
-        for (String hotel:serverNames) {
-                        
-            ArrayList<Record> records = new ArrayList<Record> (100);
-            ErrorAndLogMsg m = client.getReserveRecords(guestID, records);
-            
-            if (m!=null && m.anyError())
-                m.printMsg();
-            else
-                return_cnt += records.size();
-            
-        }
+        ArrayList<Record> records = new ArrayList<Record> (100);
+        ErrorAndLogMsg m = client.getReserveRecords(guestID, records);
         
+        if (m!=null && m.anyError())
+            m.printMsg();
+        else
+            return_cnt += records.size();
+                    
         if (cnt != return_cnt) 
             ErrorAndLogMsg.InfoMsg("records count mismatch for query of ID:" + guestID +
                     " expected:" + cnt + " returned:" + return_cnt);
     }
     
+    void randomTransferRecordValid() {
+        
+        String guestID = guestIDs.get(rand.nextInt(guestIDs.size()));
+
+        ArrayList <Record> list = records.get(guestID);
+        
+        if (list==null || list.size() <=0) return;
+        
+        int i = rand.nextInt( list.size());
+        Record r = list.get(i);
+        
+        // get a random target hotel (instead of itself)
+        String toHotel = null;
+        do {
+            i = rand.nextInt (serverNames.length);
+            toHotel = serverNames[i];
+        } while (toHotel.equals(r.shortName));
+        
+        int [] idHolder = new int[1];
+        idHolder[0] = r.resID;
+        
+        ErrorAndLogMsg m = client.transferRoom(
+                r.guestID, idHolder, r.shortName, r.roomType, r.checkInDate, r.checkOutDate,
+                toHotel);
+        
+        if (m==null || !m.anyError()) {
+            //successful transferred
+            //update the record with new ID and new Hotel
+            r.resID = idHolder[0];
+            r.shortName = toHotel;
+        }
+        else if (m.error!=ErrorCode.ROOM_UNAVAILABLE)
+            // there is a problem
+            m.printMsg();
+        
+    }
+    
+    // args[0], host of registry
+    // args[1], port of registry
+    // args[2], prefix of guestID
+    // args[3], number of guestIDs
+    // args[4], total days
+    // args[5], total time (minutes)
+    // args[6], silent  (Y, N)
+    // args[7], duplicate how many client runners
+
     public HotelClientStressTester(String args[]) {
         
         rand = new Random();
 
-        int nIDs = Integer.parseInt(args[2]);
+        int nIDs = Integer.parseInt(args[3]);
         
-        IDPrefix = args[3];
+        IDPrefix = String.valueOf(args[2]);
         
         guestIDs = new ArrayList<String> (nIDs);
         
@@ -208,17 +259,28 @@ public class HotelClientStressTester {
                 
         m.printMsg(); 
         
+        // get the names of servers
+        HotelServerWrapper[] servers = client.getServers();
+        
+        serverNames = new String[servers.length];
+        for (int i=0; i < serverNames.length; i++)
+            serverNames[i] = servers[i].prof.shortName;
+        
+                
         for (String hotel : serverNames) {
             client.loginAsManager(hotel, "manager", "pass");
         }
+        
+        minutes = Integer.parseInt(args[5]);
+
      }
     
     public void randomServiceReport() {
         int i = rand.nextInt(totalDays);
         
-        Date today = new Date();
+        SimpleDate today = new SimpleDate();
         
-        Date date = getDateByDelta (today, i);
+        SimpleDate date = SimpleDate.getDateByDelta (today, i);
         
         String hotel = serverNames[rand.nextInt(serverNames.length)];
         
@@ -230,27 +292,40 @@ public class HotelClientStressTester {
             m.printMsg();
     }
     
-    public static void main (String [] args) {
+    public void randomStatusReport() {
+        int i = rand.nextInt(totalDays);
         
-        // args[0], host of registry
-        // args[1], port of registry
-        // args[2], number of IDs
-        // args[3], ID prefix
-        // args[4], total days
-        // args[5], total time (minutes)
-        // args[6], silent  (Y, N)
+        SimpleDate today = new SimpleDate();
+        
+        SimpleDate date = SimpleDate.getDateByDelta (today, i);
+        
+        String hotel = serverNames[rand.nextInt(serverNames.length)];
+        
+        ArrayList<Record> records = new ArrayList<Record> (50);
+        
+        ErrorAndLogMsg m = client.getStatusReport(hotel, date, records);
+        
+        if (m!=null && m.anyError())
+            m.printMsg();
+    }
+    
+    @Override
+    public void run() {
+        
+
         
         int [] pos_density = {
-                50, // check avail
+                30, // check avail
                 20, // reserve
-                16,// valid cancel
+                18,// valid cancel
                 2, // invalid cancel
-                2, // query per ID
+                0, // query per ID
                 5, // service report
-                5 // status report              
+                5, // status report 
+                20 // transfer reservation
         };
         
-        int[] event_ratios = new int[7];
+        int[] event_ratios = new int[pos_density.length];
         {
             event_ratios[0] = pos_density[0];
             for (int i=1;i<event_ratios.length;i++) {
@@ -258,24 +333,9 @@ public class HotelClientStressTester {
             }
         };
         
-        ErrorAndLogMsg.addStream(MsgType.ERR, System.err);
-        
-        if (args[6].equals("N"))
-                ErrorAndLogMsg.addStream(MsgType.LOG, System.out);
-        
-        ErrorAndLogMsg.addStream(MsgType.WARN, System.err);
-        ErrorAndLogMsg.addStream(MsgType.INFO, System.err);
-
-        
         Random rand = new Random();
         
-        int minutes = Integer.parseInt(args[5]);
         long endTime = System.currentTimeMillis() + minutes * 60 * 1000;
-        
-        HotelClientStressTester tester = new HotelClientStressTester (args);
-        
-
-
         
         while ( System.currentTimeMillis() < endTime) {
             
@@ -283,26 +343,64 @@ public class HotelClientStressTester {
             
             if (r < event_ratios[0]) {
                 // check avail
-                tester.randomCheckAvail();
+                randomCheckAvail();
             } else if (r < event_ratios[1]) {
                 // reserve
-                tester.randomReserve();
+                randomReserve();
             } else if (r < event_ratios[2]) {
                 // valid cancel
-                tester.randomCancelValid();
+                randomCancelValid();
             } else if (r < event_ratios[3]) {
                 // invalid cancel
-                tester.randomCancelInvalid();
+                randomCancelInvalid();
             } else if (r < event_ratios[4]) {
                 // query per ID
-                tester.randomRecordQueryPerID();
+                randomRecordQueryPerID();
             } else if (r < event_ratios[5]) {
                 // service report
-                tester.randomServiceReport();
+                randomServiceReport();
             } else if (r < event_ratios[6]) {
                 // status report
+                randomStatusReport();
+            } else if (r < event_ratios[7]) {
+                // transfer record valid
+                randomTransferRecordValid();
             }
         }
-        
-    }
+   }
+    
+    // args[0], host of registry
+    // args[1], port of registry
+    // args[2], prefix of guestID
+    // args[3], number of guestIDs
+    // args[4], total days
+    // args[5], total time (minutes)
+    // args[6], silent  (Y, N)
+    // args[7], duplicate how many client runners
+   public static void main (String [] args) {
+       
+       
+       ErrorAndLogMsg.addStream(MsgType.ERR, System.err);
+       
+       if (args[6].equals("N"))
+               ErrorAndLogMsg.addStream(MsgType.LOG, System.out);
+       
+       ErrorAndLogMsg.addStream(MsgType.WARN, System.err);
+       ErrorAndLogMsg.addStream(MsgType.INFO, System.err);
+       
+       
+       int iRunners = Integer.parseInt(args[7]);
+       
+       for (int i=1; i<=iRunners; i++) {
+           
+           args[2] = String.valueOf(i);
+           
+           HotelClientStressTester tester = new HotelClientStressTester (args);
+       
+           Thread th = new Thread(tester);
+           th.start();
+       }
+       
+   }
+    
 }

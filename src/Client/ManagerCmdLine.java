@@ -3,15 +3,13 @@ package Client;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.Scanner;
 
+import miscutil.SimpleDate;
 import Client.HotelClient.HotelServerWrapper;
 import HotelServerInterface.ErrorAndLogMsg;
 import HotelServerInterface.IHotelServer;
@@ -23,25 +21,23 @@ import HotelServerInterface.IHotelServer.RoomType;
 public class ManagerCmdLine {
 
 	static Scanner keyboard;
-	
-	static DateFormat df = new SimpleDateFormat (IHotelServer.dateFormat);
-	
+		
 	static String DEFAULT_LOG_FILE_PATH = "ManagerLog.txt";
 	
 	// get a date from input
 	// return null if user input empty string
-	static Date inputDate () {
+	static SimpleDate inputDate () {
 		
 		int tryCnt=0;
 		
 		do {
 			try {
-				System.out.print ("(" + IHotelServer.dateFormat + "). Prese <Enter> to Cancel:");
+				System.out.print ("(" + SimpleDate.getDateFormat() + "). Prese <Enter> to Cancel:");
 				String s = keyboard.nextLine();
 				
 				if (s==null || s.isEmpty() ) return null;
 				
-				return df.parse(s);//, new ParsePosition(0));
+				return SimpleDate.parse(s);//, new ParsePosition(0));
 	
 			} catch (ParseException e) {
 				System.out.println ("Try again...");
@@ -200,7 +196,7 @@ public class ManagerCmdLine {
 					
 					Collection <Record> records = new ArrayList<Record> ();
 					
-					Date date = inputDate();
+					SimpleDate date = inputDate();
 					if (date==null) break;
 					
 					m = client.getServiceReport(name, date, records);
@@ -236,7 +232,7 @@ public class ManagerCmdLine {
 					
 					Collection <Record> records = new ArrayList<Record> ();
 					
-					Date date = inputDate();
+					SimpleDate date = inputDate();
 					if (date==null) break;
 					
 					m = client.getStatusReport(name, date, records);
@@ -260,11 +256,85 @@ public class ManagerCmdLine {
 						m.printMsg();
 					}
 					
-					break;						}
+					break;
+				}
 				case 5: {
 					System.out.println ("Good buy!");
 					return;
 				}
+                case 12: {
+                    // Login as hotel manager
+                    String name = "Gordon";
+                    
+                    m = client.loginAsManager(name, "manager", "pass");
+                    
+                    if (m!=null)
+                        System.out.println ("Manager login to Hotel '" + name + "' failed.");
+                    else
+                        System.out.println ("Manager login to Hotel '" + name + "' success.");
+                    
+                    break;
+                }
+    
+                case 13: {
+                    // Print service report
+    
+                    
+                    Collection <Record> records = new ArrayList<Record> ();
+
+                    
+                    m = client.getServiceReport("Gordon", new SimpleDate(2015,12,10), records);
+                    
+                    if (records.isEmpty())
+                        System.out.println ("No room need to be serviced on that day.\n");
+                    else {
+                        
+                        System.out.println ("Rooms to be serviced on that day:");
+                        
+                        int i = 0;
+                        for (Record r:records) {
+                            i ++;
+                            System.out.println ("#" + i + "--------------\n");
+                            System.out.println (r);
+                        }
+                    }
+                    
+                    if (m!=null && m.anyError()) {
+                        System.out.println ("Some error retrieving records.");
+                        m.printMsg();
+                    }
+                    
+                    break;              
+                }
+                case 14: {
+                    // Print status report - short cut for testing
+                    Collection <Record> records = new ArrayList<Record> ();
+                    
+                    SimpleDate date = new SimpleDate(2015,12,7);
+                    
+                    m = client.getStatusReport("Gordon", date, records);
+                    
+                    if (records.isEmpty())
+                        System.out.println ("No room will be occupied on that day.\n");
+                    else {
+                        
+                        System.out.println ("Rooms to be occupied on that day:");
+                        
+                        int i = 0;
+                        for (Record r:records) {
+                            i ++;
+                            System.out.println ("#" + i + "--------------\n");
+                            System.out.println (r);
+                        }
+                    }
+                    
+                    if (m!=null && m.anyError()) {
+                        System.out.println ("Some error retrieving records.");
+                        m.printMsg();
+                    }
+                    
+                    break;
+                }
 			}
 		} while (true);
 	}

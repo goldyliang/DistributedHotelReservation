@@ -3,32 +3,19 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.math.BigInteger;
+import java.io.Serializable;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
-import java.rmi.NoSuchObjectException;
-import java.rmi.NotBoundException;
-import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.RemoteServer;
-import java.rmi.server.ServerNotActiveException;
-import java.rmi.server.UnicastRemoteObject;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
+//import java.util.Calendar;
+//import java.util.Date;
 import java.util.EnumMap;
-import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,15 +23,29 @@ import java.util.Properties;
 import java.util.Scanner;
 import java.util.TreeMap;
 
+import miscutil.SimpleDate;
+
+import org.omg.CORBA.ORB;
+import org.omg.CORBA.ORBPackage.InvalidName;
+import org.omg.CosNaming.NameComponent;
+import org.omg.CosNaming.NamingContextExt;
+import org.omg.CosNaming.NamingContextExtHelper;
+import org.omg.CosNaming.NamingContextPackage.CannotProceed;
+import org.omg.CosNaming.NamingContextPackage.NotFound;
+import org.omg.PortableServer.POA;
+import org.omg.PortableServer.POAHelper;
+import org.omg.PortableServer.POAManagerPackage.AdapterInactive;
+import org.omg.PortableServer.POAPackage.ObjectNotActive;
+import org.omg.PortableServer.POAPackage.ServantAlreadyActive;
+import org.omg.PortableServer.POAPackage.WrongPolicy;
+
+import CHotelServerInterface.CIHotelServerManager;
+import CHotelServerInterface.CIHotelServerManagerHelper;
 import HotelServer.ReserveRecords.IRecordOperation;
 import HotelServerInterface.ErrorAndLogMsg;
 import HotelServerInterface.IHotelCentralAdmin;
 import HotelServerInterface.IHotelServer;
 import HotelServerInterface.IHotelServerManager;
-import HotelServerInterface.IHotelServer.Availability;
-import HotelServerInterface.IHotelServer.HotelProfile;
-import HotelServerInterface.IHotelServer.Record;
-import HotelServerInterface.IHotelServer.RoomType;
 import HotelServerInterface.ErrorAndLogMsg.ErrorCode;
 import HotelServerInterface.ErrorAndLogMsg.MsgType;
 
@@ -65,6 +66,17 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     
     IHotelCentralAdmin adminObj; // the central admin object
     
+    HotelServerImpl serverImpl; // wrapper of server for CORBA interface
+    HotelServerManagerImpl serverMgrImpl; // wrapper for manager interface
+    CIHotelServerManager serverMgrRef; // the manager referenece to be returned by login 
+
+    
+    private static int MAX_RESERVATION_ID = 10000;
+    // reservation ID is the short code of the hotel(unique), 
+    // plus an incremental number which last value is as below
+    // increment until MAX_RESERVATION_ID then go back to zero
+    int lastReservationID = 0;
+    
 /*    public static class AddressPort {
         private InetAddress add;
         private int port;
@@ -74,20 +86,25 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         }
     }*/
     
-    List<InetSocketAddress> srvSocketAddresses;
+    //List<InetSocketAddress> srvSocketAddresses;
+    Map <String, InetSocketAddress> srvSocketAddresses;
+    
     int queryPort;
     final static int DEFAULT_LISTEN_PORT = 5000;
+
+    public static final int SOCKET_TIMEOUT = 3000;
     
     // how many counts we have done.  
     // Update the server query port information every 10 times of query
     int queryCount = 0;
-    final int  QUERIES_PER_SERVER_UPDATE = 10;
+    final int  QUERIES_PER_SERVER_UPDATE = 0; // 0 indicating only query for the first time;
     
     private String managerID, managerPassword;
     
     private Thread thread = null;
     
     DatagramSocket listenSocket = null;
+
     
     public HotelServer ( HotelProfile prof, int queryPort) {
         
@@ -101,10 +118,13 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         resRecords = new ReserveRecords();
         
-        srvSocketAddresses = new ArrayList<InetSocketAddress> ();
+        srvSocketAddresses = new TreeMap<String, InetSocketAddress> ();
         
         this.queryPort = queryPort;
         
+        // Now create a CORBA server object as an additional interface
+        serverImpl = new HotelServerImpl (this);
+        serverMgrImpl = new HotelServerManagerImpl (this);
     }
     
 
@@ -115,22 +135,46 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     }
     
     private String getClientHostLog() {
-        try {
-            return ";From:" + RemoteServer.getClientHost();
-        } catch (ServerNotActiveException e) {
-            e.printStackTrace(); // abnormal error, just print
-            return "";
-        }
+        // CORBA does not provide a convenient way to get the client address
+        // just ignore
+        //try {
+            return ";From: N/A"; //+ RemoteServer.getClientHost();
+        //} catch (ServerNotActiveException e) {
+       //     e.printStackTrace(); // abnormal error, just print
+        //    return "";
+       // }
     }
 
+    // TODO : serverID may not guarantee unique here
+    private int getNewReserveID () {
+        int id = Math.abs(this.hashCode() % 1000);
+        
+        
+        id = id  * MAX_RESERVATION_ID + (this.lastReservationID);
+        
+        lastReservationID = (lastReservationID + 1);
+        if (lastReservationID == MAX_RESERVATION_ID)
+            lastReservationID = 0;//% 100;
+        
+        return id;
+    }
+    
     @Override
     public ErrorCode reserveRoom (
             String guestID, RoomType roomType, 
-            Date checkInDate, Date checkOutDate) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate, int[] resID) throws RemoteException {
         
+        Record newRec = new Record (
+                getNewReserveID(),
+                guestID, 
+                prof.shortName, 
+                roomType, 
+                checkInDate, checkOutDate, 
+                prof.rates.get(roomType));
         
-        String logStr = new Record (guestID, this.prof.shortName, 
-                roomType, checkInDate, checkOutDate, 0).toOneLineString();
+        resID[0] = newRec.resID;
+        
+        String logStr =  newRec.toOneLineString();
         logStr = logStr + getClientHostLog();
 
         
@@ -144,13 +188,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
 
             
             try {
-                r = resRecords.makeReservation(guestID, 
-                        new Record (guestID, 
-                                prof.shortName, 
-                                roomType, 
-                                checkInDate, 
-                                checkOutDate,
-                                prof.rates.get(roomType)) );
+                r = resRecords.makeReservation(guestID, newRec);
             } catch (Exception e) {
                 ErrorAndLogMsg.ExceptionErr(e, "Exception making reservation: " + logStr);
                 return ErrorCode.EXCEPTION_THROWED;
@@ -179,15 +217,14 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public ErrorCode cancelRoom (
             String guestID, RoomType roomType, 
-            Date checkInDate, Date checkOutDate) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException {
         
-        String logStr = new Record (guestID, this.prof.shortName, 
-                roomType, checkInDate, checkOutDate, 0).toOneLineString();
-        logStr = logStr + getClientHostLog();
+
 
         
         AvailableRoomCounts counts = roomCounts.get(roomType);
         Record cancelRec = new Record (
+                0, // do not provide, just match the dates
                 guestID, 
                 prof.shortName, 
                 roomType, 
@@ -195,8 +232,13 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 checkOutDate,
                 prof.rates.get(roomType));
         
+        String logStr = cancelRec.toOneLineString();
+        logStr = logStr + getClientHostLog();
+        
         //First to see if we can find the reservation record and delete/update it
-        boolean r = resRecords.cancelReservation(guestID, cancelRec);
+        boolean r = resRecords.cancelReservation(guestID, cancelRec, 
+                getNewReserveID()  // provide a new reseravation ID in case a split is needed
+                );
         
         if (r) {
             // Now we found the record and delete/update already.
@@ -245,7 +287,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         return records;
     }
     
-    public Record[] getServiceReport (final Date serviceDate) throws RemoteException {
+    public Record[] getServiceReport (final SimpleDate serviceDate) throws RemoteException {
         
         // Have to traverse the whole records.
         
@@ -271,7 +313,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         return res.toArray(new Record[0]) ;
     }
     
-    public Record[] getStatusReport (final Date date) throws RemoteException {
+    public Record[] getStatusReport (final SimpleDate date) throws RemoteException {
         
         // Have to traverse the whole records.
         
@@ -305,20 +347,51 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             int port,     // port of registry
             String name,  // name to bind
             String adminName // the bind name of Hotel Admin object to register
-            ) throws RemoteException, NotBoundException {
+            ) throws InvalidName, ServantAlreadyActive, 
+            WrongPolicy, ObjectNotActive, 
+            org.omg.CosNaming.NamingContextPackage.InvalidName, 
+            NotFound, 
+            CannotProceed, AdapterInactive  {
         
-        Remote obj = UnicastRemoteObject.exportObject(this,0);
-        
-        Registry r = LocateRegistry.getRegistry(host, port);
-        
-        r.rebind(name, obj);
-        
-//        IHotelServer oo = (IHotelServer) r.lookup("Gordon");
-        
-//        if (oo!=null) oo.getProfile();
-        adminObj = (IHotelCentralAdmin) r.lookup(adminName);
-        
-        adminObj.registerHotelQuerySocket (queryPort);
+        try {
+            // activiate the object
+    
+            Properties props = new Properties();
+            props.put("org.omg.CORBA.ORBInitialPort", String.valueOf(port));
+            props.put("org.omg.CORBA.ORBInitialHost", host);
+            ORB orb = ORB.init((String[])null, props);
+            
+            POA rootPOA = POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
+            byte[] id = rootPOA.activate_object(serverImpl);
+            org.omg.CORBA.Object serverRef = rootPOA.id_to_reference(id);
+            
+            System.out.println ("Server IOR:" + serverRef);
+            
+            // bind to name service
+            NamingContextExt ctx =
+                    NamingContextExtHelper.narrow(orb.resolve_initial_references(
+                      "NameService"));
+            
+            NameComponent bindname[] = ctx.to_name(prof.shortName);
+            ctx.rebind(bindname, serverRef);
+            
+            System.out.println("Server " + prof.shortName + " bound successful!");
+            
+            // create manager object and activiate
+            id = rootPOA.activate_object(serverMgrImpl);
+            org.omg.CORBA.Object ref = rootPOA.id_to_reference(id);
+            System.out.println ("Server Manager IOR:" + ref);
+            
+            // narrow to a manager object that can be returned by getManager method
+            serverMgrRef = 
+                    CIHotelServerManagerHelper.narrow(
+                            rootPOA.servant_to_reference(serverMgrImpl));
+            
+            
+            rootPOA.the_POAManager().activate();           
+        } catch (Exception e) {
+            ErrorAndLogMsg.ExceptionErr(e, "Server registration failed");
+        }
         
     }
     
@@ -360,15 +433,9 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             
             AvailableRoomCounts ct = roomCounts.get(typ);
             
-            Date dt=null;
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");      
-            try {
-                dt = sdf.parse(sdf.format(new Date()));
-            } catch (ParseException e) {
-                e.printStackTrace();
-            } // set to today
+            SimpleDate dt= new SimpleDate(); //today
             
-            Date dt_end = ct.getBookingEndDate();
+            SimpleDate dt_end = ct.getBookingEndDate();
             
             for (int n=0; n<10; n++) {
                 System.out.print ( String.format("%3d",n));
@@ -377,7 +444,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             for (int n=0;n<10;n++) System.out.print("+--");
             System.out.println ("");
             
-            while (dt_end.after(dt))  {
+            while (!dt_end.before(dt))  {
                 
                 int n = 0;
                 while (n<10 && !dt.after(dt_end)) {
@@ -385,10 +452,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                     System.out.print (String.format("%3d",cnt));
                     n++;
                     
-                    Calendar cal = Calendar.getInstance();
-                    cal.setTime(dt);
-                    cal.add(Calendar.DATE, 1);
-                    dt = cal.getTime();
+                    dt.nextDay();
                 //    dt.setTime(dt.getTime() + 24*60*60*1000);
                 }
                 System.out.println ("");
@@ -563,11 +627,12 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             }
             else if (ln.equals("q")) {
                 
+                /*
                 try {
                     UnicastRemoteObject.unexportObject(server, true);
                 } catch (NoSuchObjectException e) {
                     e.printStackTrace();
-                }
+                } */
                 
                 server.stopQueryListeningThread();
                 
@@ -595,8 +660,16 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
     }
     
+    // only called from HotelServerImpl, not an exposed interface
+    public CIHotelServerManager getManagerObject_Corba() {
+        return this.serverMgrRef;
+    }
+    
+    
     private void loadServerAddPorts () {
 
+        // TODO: add code to invoke admin object
+        /*
         if (adminObj != null) {
             
             List<InetSocketAddress> newAddr = null;
@@ -614,8 +687,15 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 ErrorAndLogMsg.InfoMsg("Server query sockets updated.");
             } else
                 ErrorAndLogMsg.InfoMsg("Server query sockets update failure.");
-        }
-
+        } */
+        
+        // work-around solution, hard code socket addresses
+        
+        srvSocketAddresses = new TreeMap <String,InetSocketAddress> ();
+        
+        srvSocketAddresses.put("Gordon", new InetSocketAddress("localhost", 5000));
+        srvSocketAddresses.put("Star", new InetSocketAddress("localhost", 5001));
+        srvSocketAddresses.put("Motel", new InetSocketAddress("localhost", 5002));
     }
     
     void startQueryListeningThread () {
@@ -633,116 +713,285 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             listenSocket.close();
             
         try {
-            adminObj.unRegisterHotelQuerySocket(queryPort);
+            if (adminObj!=null)
+                adminObj.unRegisterHotelQuerySocket(queryPort);
         } catch (RemoteException e) {
             ErrorAndLogMsg.ExceptionErr(e, "Exception when un-registering socket");
         }
 
     }
     
-    private class RequestMessage {
-        RoomType type;
-        Date inDate, outDate;
+    
+    private static String decodeString (ByteBuffer bbuf) {
+        byte[] buf = bbuf.array();
+        int len = bbuf.get();
+       
+        if (len>0) {
+            String r = new String (buf, bbuf.position(), len);
+            bbuf.position( bbuf.position() + len );
         
-        private void putDate (ByteBuffer bbuf, Date date) {
-            Calendar cal = new GregorianCalendar();
-            cal.setTime(date);
-            bbuf.putShort( (short)cal.get(Calendar.YEAR));
-            bbuf.put ( (byte)cal.get(Calendar.MONTH));
-            bbuf.put ( (byte)cal.get(Calendar.DAY_OF_MONTH));
-        }
-        
-        private Date getDate(ByteBuffer bbuf) {
-            short year = bbuf.getShort(); // use 100x format just to increase buffer readability
-            byte month = bbuf.get();
-            byte day = bbuf.get();
-            
-            Calendar cal = Calendar.getInstance();
-            cal.set(year, month, day);
-            return cal.getTime();
-        }
-        
-        public int encode(byte[] buf) {
-            ByteBuffer bbuf = ByteBuffer.wrap(buf);// .allocate(request.getLength());
+            return r;
+        } else
+            return "";
+    }
 
-            bbuf.put((byte)(type.ordinal()));
-            
-            putDate (bbuf, inDate);
-            putDate (bbuf, outDate);
-            
-            return bbuf.position();
-        }
-        
-        
-        public void decode(byte[] buf) {
-            // extract data from request
     
-            ByteBuffer bbuf = ByteBuffer.wrap(buf);// .allocate(request.getLength());
-    
-            type = RoomType.values()[bbuf.get()];
-            
-            inDate = getDate(bbuf);
-            outDate = getDate(bbuf);
+    private static void encodeString (ByteBuffer bbuf, String s) {
+        if (s==null)
+            bbuf.put((byte)0);
+        else {
+            bbuf.put( (byte) s.length());
+            if (s.length()>0)
+                bbuf.put( s.getBytes());
         }
     }
     
-    private class ReplyMessage {
-        
+    public static class UDPMessage implements 
+        Serializable, Cloneable { //implements serializable {
+        enum MessageType {
+            AVIAL_REQ, 
+            AVIAL_REPLY,
+            QUERY_COMMIT_REQ, 
+            VOTE_REPLY, 
+            COMMIT_REQ, 
+            COMMIT_ACK, 
+            COMMIT_RETRY};
+
+        MessageType msgType;
+        String guestID;
         String hotelName;
-        RoomType type;
-        int avail;
+        String targetHotel;
+        RoomType roomType;
+        SimpleDate inDate, outDate;
         float rate;
+        int availCnt;
+        int resID; // or transaction ID
         
-        public int encode(byte[] buf) {
-            ByteBuffer bbuf = ByteBuffer.wrap(buf);// .allocate(request.getLength());
-            
-            bbuf.put( (byte)hotelName.length());
-            bbuf.put(hotelName.getBytes());
+        int newPort; // new port for transaction
+        int newResID; // new reservation ID
+        
+        int returnCode; // OK / 1; NOT_OK, 0 or other
 
-            bbuf.put( (byte)type.ordinal());
+        
+        
+       /* public static MessageType getMessageType (byte[] buf) {
+            return MessageType.values()[buf[0]];
+        } */
+        
+        public int encode (MessageType msgType, byte[] buf) {
+            ByteBuffer bbuf = ByteBuffer.wrap(buf);
             
-            bbuf.putShort( (short)avail);
+            this.msgType = msgType;
+            bbuf.put ((byte)msgType.ordinal());
             
-            if (avail>0) {
-                int rate_int = Float.floatToIntBits(rate);
-                bbuf.putInt(rate_int);
-            }
+            encodeString(bbuf, guestID);
+            encodeString(bbuf, hotelName);
+            encodeString(bbuf, targetHotel);
+            if (roomType!=null)
+                bbuf.put((byte) roomType.ordinal());
+            else
+                bbuf.put((byte)255);
+            SimpleDate.encodeDate (bbuf, inDate);
+            SimpleDate.encodeDate (bbuf, outDate);
+            bbuf.putFloat(rate);
+            bbuf.putInt(availCnt);
+            bbuf.putInt(resID);
+            bbuf.putInt(newPort);
+            bbuf.putInt(newResID);
+            bbuf.putInt(returnCode);
             
             return bbuf.position();
         }
         
+        public static UDPMessage decode (byte[] buf) {
+            ByteBuffer bbuf = ByteBuffer.wrap(buf);
+            
+            UDPMessage msg = new UDPMessage();
+
+            msg.msgType = MessageType.values()[bbuf.get()];
+            
+            msg.guestID = decodeString(bbuf);
+            msg.hotelName = decodeString(bbuf);
+            msg.targetHotel = decodeString(bbuf);
+            
+            byte b = bbuf.get();
+            if (b>=0 && b<RoomType.values().length)
+                msg.roomType = RoomType.values()[b];
+            else
+                msg.roomType = null;
+                    
+            msg.inDate = SimpleDate.decodeDate (bbuf);
+            msg.outDate = SimpleDate.decodeDate (bbuf);
+            msg.rate = bbuf.getFloat();
+            msg.availCnt = bbuf.getInt();
+            msg.resID = bbuf.getInt();
+            msg.newPort = bbuf.getInt();
+            msg.newResID = bbuf.getInt();
+            msg.returnCode = bbuf.getInt();
+            
+            return msg;
+        }
         
-        public void decode(byte[] buf) {
-            // extract data from request
-    
-            ByteBuffer bbuf = ByteBuffer.wrap(buf);// .allocate(request.getLength());
-            
-            int i= (int) buf[0]; // length of name
-            
-            hotelName = new String (buf, 1, i);
-            
-            bbuf.position(i+1);
-            
-            byte tp_b = bbuf.get();
-            
-            if (tp_b>=0 && tp_b<RoomType.values().length)
-                type = RoomType.values()[tp_b];
-            
-            avail = bbuf.getShort();
-            
-            if (avail>0) {
-                int i_avail = bbuf.getInt();
-                rate = Float.intBitsToFloat(i_avail);
-            }
+        public String toString() {
+            return "msgType:" + msgType +
+                   ";guestID:" + guestID +
+                   ";hotelName:" + hotelName +
+                   ";targetHotel:" + targetHotel +
+                   ";roomType:" + roomType +
+                   ";inDate:" + inDate +
+                   ";outDate:" + outDate +
+                   ";rate:" + rate +
+                   ";availCnt:" + availCnt +
+                   ";resID:" + resID +
+                   ";newPort:" + newPort +
+                   ";newResID:" + newResID +
+                   ";return:" + returnCode; // or transaction ID
+        }
+        
+        @Override
+        public Object clone() {
+            UDPMessage newMsg = new UDPMessage();
+            newMsg.msgType = msgType;
+            newMsg.guestID = new String(guestID);
+            newMsg.hotelName = new String (hotelName);
+            newMsg.targetHotel = new String (targetHotel);
+            newMsg.roomType = roomType;
+            newMsg.inDate = inDate.clone();
+            newMsg.outDate = outDate.clone();
+            newMsg.rate = rate;
+            newMsg.availCnt = availCnt;
+            newMsg.resID = resID;
+            newMsg.newPort = newPort;
+            newMsg.newResID = newResID;
+            newMsg.returnCode = returnCode;
+            return newMsg;
         }
     }
     
+    
+    private void handleAvailRequest(UDPMessage msgRequest, DatagramPacket request, byte[] buf) {
+        
+        // extract data from request
+        //byte[] buf = request.getData();
+        
+       // UDPMessage msgRequest = UDPMessage.decode(buf);
+        
+        if (msgRequest == null) {
+            ErrorAndLogMsg.GeneralErr(ErrorCode.MSG_DECODE_ERR, 
+                    "Error decoding query message from " + request.getAddress());
+            return;
+        }
+        
+    /*
+        RequestMessage msgRequest = null;
+        try {
+            msgRequest = new RequestMessage();
+            msgRequest.decodeAvailRequest(buf);
+        } catch (Exception e) {
+            ErrorAndLogMsg.GeneralErr(ErrorCode.MSG_DECODE_ERR, 
+                    "Error decoding query message from " + request.getAddress());
+            
+            return;
+        } */
+        
+        // do the query
+        int avail = roomCounts.get(msgRequest.roomType).query(msgRequest.inDate, msgRequest.outDate);
+        
+        // compose the reply message
+        UDPMessage msgReply = new UDPMessage();
+        msgReply.hotelName = prof.shortName;
+        msgReply.roomType = msgRequest.roomType;
+        msgReply.availCnt = avail;
+        if (avail>0) 
+            msgReply.rate = prof.rates.get(msgReply.roomType);
+        else
+            msgReply.rate = 0;
+        int len = msgReply.encode(UDPMessage.MessageType.AVIAL_REPLY, buf);
+        
+        /*ReplyMessage msgReply = new ReplyMessage();
+        
+        msgReply.hotelName = prof.shortName;
+        msgReply.type = msgRequest.roomType;
+        msgReply.avail = avail;
+        if (avail>0) 
+            msgReply.rate = prof.rates.get(msgReply.type);
+        else
+            msgReply.rate = 0;
+        
+        int len = msgReply.encodeAvailReply(buf); */
+        
 
+        DatagramPacket reply = new DatagramPacket(buf, 
+                len,
+                request.getAddress(), 
+                request.getPort());
+        
+        try {
+            listenSocket.send(reply);
+        } catch (Exception e) {
+            ErrorAndLogMsg.ExceptionErr(e, "Excepting sending reply packet.");
+            return;
+        }
+        
+        if (logQueries) {
+            String recStr = new Record (0,"", prof.shortName, msgRequest.roomType,
+                    msgRequest.inDate, msgRequest.outDate,
+                    0).toOneLineString();
+            
+            ErrorAndLogMsg.LogMsg("Query reply sent: " + recStr + ";toHost:" + request.getAddress());
+        }
+    }
+
+    private void handleCommitRetry (UDPMessage msgRequest, DatagramPacket request, byte[] buf) {
+
+        if (msgRequest == null) {
+            ErrorAndLogMsg.GeneralErr(ErrorCode.MSG_DECODE_ERR, 
+                    "Error decoding commit retry message from " + request.getAddress());
+            return;
+        }
+        
+        String transInfo = "TransID:" + msgRequest.resID + "-";
+        ErrorAndLogMsg.LogMsg( transInfo + "Received " + msgRequest.msgType);
+        
+        // =======================================
+        // Find the record to see if it is really there
+        // the reservation ID in msgRequest is the old ID
+        // the new reservation ID is unknown, so find with guestID, date, room type, etc
+        Record rec = resRecords.findRecord(
+                msgRequest.guestID, 
+                msgRequest.roomType,
+                msgRequest.inDate,
+                msgRequest.outDate);
+        
+        // compose the reply message
+        UDPMessage msgReply = (UDPMessage)msgRequest.clone();
+        msgReply.returnCode = (rec!=null? 1 : 0 );
+        msgReply.newResID = (rec!=null? rec.resID : 0);
+        
+        int len = msgReply.encode(UDPMessage.MessageType.COMMIT_ACK, buf);
+        
+        DatagramPacket reply = new DatagramPacket(buf, 
+                len,
+                request.getAddress(), 
+                request.getPort());
+        
+        try {
+            listenSocket.send(reply);
+            
+            ErrorAndLogMsg.LogMsg(transInfo + "COMMIT_ACK sent" + msgReply);
+            
+        } catch (Exception e) {
+            ErrorAndLogMsg.ExceptionErr(e, transInfo + "Excepting sending reply packet.");
+            return;
+        }
+
+    }
+    
     // The thread body to receive query request and send respond
     public void run() {
         System.out.println ("Query listening thread started...");
         
-        byte[] buffer = new byte[200]; // todo , fine tune buffer
+        byte[] buffer = new byte[5000]; // todo , fine tune buffer
         
         listenSocket = null; 
         
@@ -766,55 +1015,30 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                     break;
                 }
                 
+
                 // extract data from request
                 byte[] buf = request.getData();
                 
-                RequestMessage msgRequest = null;
-                try {
-                    msgRequest = new RequestMessage();
-                    msgRequest.decode(buf);
-                } catch (Exception e) {
-                    ErrorAndLogMsg.GeneralErr(ErrorCode.MSG_DECODE_ERR, 
-                            "Error decoding query message from " + request.getAddress());
-                    
-                    continue;
-                }
+                UDPMessage msg = UDPMessage.decode(buf);
+                //UDPMessage.MessageType reqType = UDPMessage.getMessageType(buf);
+                // get request type
+                //RequestMessage.RequestType reqType = RequestMessage.getRequestType(buf);
                 
-                // do the query
-                int avail = roomCounts.get(msgRequest.type).query(msgRequest.inDate, msgRequest.outDate);
-                
-                // compose the reply message
-                ReplyMessage msgReply = new ReplyMessage();
-                
-                msgReply.hotelName = prof.shortName;
-                msgReply.type = msgRequest.type;
-                msgReply.avail = avail;
-                if (avail>0) 
-                    msgReply.rate = prof.rates.get(msgReply.type);
-                else
-                    msgReply.rate = 0;
-                
-                int len = msgReply.encode(buf);
-                
-
-                DatagramPacket reply = new DatagramPacket(buf, 
-                        len,
-                        request.getAddress(), 
-                        request.getPort());
-                
-                try {
-                    listenSocket.send(reply);
-                } catch (Exception e) {
-                    ErrorAndLogMsg.ExceptionErr(e, "Excepting sending reply packet.");
-                    continue;
-                }
-                
-                if (logQueries) {
-                    String recStr = new Record ("", prof.shortName, msgRequest.type,
-                            msgRequest.inDate, msgRequest.outDate,
-                            0).toOneLineString();
-                    
-                    ErrorAndLogMsg.LogMsg("Query reply sent: " + recStr + ";toHost:" + request.getAddress());
+                switch (msg.msgType) {
+                        //reqType) {
+                case AVIAL_REQ:
+                        handleAvailRequest(msg, request, buf);
+                        break;
+                case QUERY_COMMIT_REQ:
+                        handleQueryCommit (listenSocket, request);
+                        break;
+                case COMMIT_RETRY:
+                        handleCommitRetry (msg, request, buf);
+                        break;
+                default:
+                    // other message shall not be sent to this port
+                    ErrorAndLogMsg.GeneralErr(ErrorCode.MSG_DECODE_ERR, "Request " + 
+                            msg.msgType + " should not be sent to port " + queryPort);
                 }
             }
         } catch (Exception e) {
@@ -828,12 +1052,15 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public List<Availability> checkAvailability (
             String guestID, RoomType roomType,
-            Date checkInDate, Date checkOutDate ) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate ) throws RemoteException {
         
+        String regHost;
+        int regPort, queryPort;
+
         String recStr = null;
         
         if (logQueries) {
-            recStr = new Record (guestID, prof.shortName, roomType,
+            recStr = new Record (0, guestID, prof.shortName, roomType,
                     checkInDate, checkOutDate, 0).toOneLineString();
             ErrorAndLogMsg.LogMsg( "Availability query launched " + recStr + getClientHostLog());
         }
@@ -860,9 +1087,13 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         if (queryCount == 0) 
             loadServerAddPorts();
         
-        queryCount++;
-        if (queryCount >= QUERIES_PER_SERVER_UPDATE)
-            queryCount = 0;
+        if (QUERIES_PER_SERVER_UPDATE > 0) {
+                queryCount++;
+        
+                if (queryCount >= QUERIES_PER_SERVER_UPDATE)
+                    queryCount = 0;
+        } else
+            queryCount = 1;
         
         // send query message to all other servers
         DatagramSocket socket = null;
@@ -874,17 +1105,22 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             return null;
         }
         
-        byte[] buf = new byte[200];
+        byte[] buf = new byte[5000];
         
-        RequestMessage reqMsg = new RequestMessage();
-        reqMsg.type = roomType;
+        UDPMessage reqMsg = new UDPMessage();
+        
+        //RequestMessage reqMsg = new RequestMessage();
+        reqMsg.roomType = roomType;
         reqMsg.inDate = checkInDate;
         reqMsg.outDate = checkOutDate;
-        int len = reqMsg.encode(buf);
+        
+        int len = reqMsg.encode(UDPMessage.MessageType.AVIAL_REQ, buf);
+        
+        //int len = reqMsg.encodeAvailRequest(buf);
         
         int sent = 0;
         
-        for (InetSocketAddress addr : srvSocketAddresses) {
+        for (InetSocketAddress addr : srvSocketAddresses.values()) {
             
             try {
                 DatagramPacket request = new DatagramPacket(buf, len, addr);
@@ -906,7 +1142,8 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         buf = new byte[200];
         
-        ReplyMessage repMsg = new ReplyMessage();
+        //ReplyMessage repMsg = new ReplyMessage();
+        
         
         long curTime = System.currentTimeMillis();
         long endTime  = curTime  + 2000; // allow two seconds to get responds
@@ -940,6 +1177,15 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 continue;
             }
             
+            UDPMessage repMsg = UDPMessage.decode(buf);
+            
+            if (repMsg.msgType != UDPMessage.MessageType.AVIAL_REPLY) {
+                ErrorAndLogMsg.GeneralErr(ErrorCode.MSG_DECODE_ERR, 
+                        "Expect AVAIL_REPLY but got " + reqMsg.msgType).printMsg();
+                continue; // not a right message
+            }
+
+            
             SocketAddress addr_from = reply.getSocketAddress();
             
             if (recSockets.get(addr_from)==null) {
@@ -948,25 +1194,25 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 
                 recSockets.put(addr_from, Boolean.TRUE);
             
-                repMsg.avail = 0;
+                /*repMsg.avail = 0;
                 
                 try {
-                    repMsg.decode(buf);
+                    repMsg.decodeAvailReply(buf);
                 } catch (Exception e) {
                     ErrorAndLogMsg.GeneralErr(ErrorCode.MSG_DECODE_ERR, "Error decoding reply msg from " + getClientHostLog());
-                }
+                } */
                 
-                if (repMsg.avail>0) {
+                if (repMsg.availCnt >0) {
                 
                     Availability avail = new Availability();
                     
                     avail.hotelName = repMsg.hotelName;
-                    avail.availCount = repMsg.avail;
+                    avail.availCount = repMsg.availCnt;
                     avail.rate = repMsg.rate;
                     
                     avails.add(avail);
                     
-                    total_cnt += repMsg.avail;
+                    total_cnt += repMsg.availCnt;
                 }
             }
         }
@@ -982,8 +1228,563 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                     " Total rooms:"+ total_cnt);
         }
         
+        socket.close();
+        
         return avails;
     }
+    
+
+    @Override
+    public ErrorCode transferRoom(String guestID, int reservationID,
+            RoomType roomType, SimpleDate checkInDate, SimpleDate checkOutDate,
+            String targetHotel,
+            int[] newID) {
+        
+        byte[] buf = new byte[1000];
+
+        
+        // =======================================
+        // Find the record first (and lock it) and validate
+        Record rec = resRecords.findRecord(guestID, reservationID);
+        if (rec!=null &&
+            (!rec.checkInDate.equals(checkInDate) ||
+             !rec.checkOutDate.equals(checkOutDate) ||
+             rec.roomType != roomType) )
+             rec = null;
+            
+        
+        if (rec==null) {
+            //TODO unlock record
+            return ErrorCode.RECORD_NOT_FOUND;
+        }
+        
+        // ======================================
+        // local resource ready...
+        // =======================================
+        
+
+        
+        // Send Query to Commit
+        UDPMessage msgReq = new UDPMessage();
+        msgReq.resID = rec.resID;
+        msgReq.guestID = rec.guestID;
+        msgReq.hotelName = rec.shortName;
+        msgReq.roomType = rec.roomType;
+        msgReq.inDate = rec.checkInDate;
+        msgReq.outDate = rec.checkOutDate;
+        msgReq.targetHotel = targetHotel;
+        
+        // find the socket address
+        InetSocketAddress addr = this.srvSocketAddresses.get(targetHotel);
+        if (addr == null) {
+            //TODO unlock record
+            return ErrorCode.HOTEL_NOT_FOUND;
+        }
+        
+        
+        String transInfo = "TransID:" + rec.resID + "-"; // common header for transaction progress
+        
+        // Log transaction start
+        ErrorAndLogMsg.LogMsg(transInfo + "Transfer Transaction started.");
+        
+        // TODO: lock the record
+
+        
+        // send query message to the target server
+        ErrorCode result = ErrorCode.SUCCESS;
+        
+        DatagramSocket socket = null;
+        
+        try {
+            socket = new DatagramSocket();
+        } catch (SocketException e) {
+            ErrorAndLogMsg.ExceptionErr(e, transInfo+ "Exception creating query socket.").printMsg();
+            result = ErrorCode.EXCEPTION_THROWED;
+        }
+        
+        if (result == ErrorCode.SUCCESS) {
+            
+            try {
+                int len = msgReq.encode(UDPMessage.MessageType.QUERY_COMMIT_REQ, buf);
+                
+                DatagramPacket request = new DatagramPacket(buf, len, addr);
+    
+                socket.send(request);
+                
+                ErrorAndLogMsg.LogMsg( transInfo + "Query Commit message sent to " + 
+                        targetHotel + "\nMessage Detail:" + msgReq );
+                
+            } catch (Exception e) {
+                ErrorAndLogMsg.LogMsg(transInfo + "Packet send to " + addr.toString() + "failed.");
+                result = ErrorCode.EXCEPTION_THROWED;
+            }
+        }
+        
+        if (result!=ErrorCode.SUCCESS) {
+            // we have problem here
+            // TODO: roll back unlock record
+            
+            return result;
+        }
+        
+        // =======================================
+        // Receive Quote OK/NOT OK
+        DatagramPacket reply = new DatagramPacket(buf, buf.length);
+
+        UDPMessage replyMsg = null;
+        result = ErrorCode.SUCCESS;
+        
+        try {
+            socket.setSoTimeout( SOCKET_TIMEOUT );
+            socket.receive(reply);
+            
+            buf = reply.getData();
+            
+            replyMsg = UDPMessage.decode(buf);
+
+            ErrorAndLogMsg.LogMsg(transInfo + "Received Quote\nMsg:" + replyMsg);
+            
+        } catch (SocketTimeoutException e) {
+            result = ErrorCode.TIME_OUT; 
+        } catch (Exception e) {
+            ErrorAndLogMsg.ExceptionErr(e, transInfo + "Exception receiving Vote Reply");
+            result = ErrorCode.EXCEPTION_THROWED;
+        }
+
+        
+        if (replyMsg!=null) {
+            // check whether it is a valid reply
+            
+            if (replyMsg.msgType!=UDPMessage.MessageType.VOTE_REPLY ||
+                replyMsg.resID != reservationID) {
+                // invalid
+                replyMsg = null;
+                result = ErrorCode.INTERNAL_ERROR;
+            }
+            
+            // check it is OK or NOT OK
+            if (replyMsg.returnCode != 1) {
+                replyMsg = null;
+                result = ErrorCode.ROOM_UNAVAILABLE;
+            }
+        } 
+        
+        if (replyMsg==null) {
+            // central point of roll back for Vote phase (unlock the record)
+            // TODO
+            ErrorAndLogMsg.LogMsg(transInfo + "Terminated. ErrorCode=" + result);
+            return result;
+        }
+         
+        // =======================================
+        //  now we have a valid VOTE OK
+        //  perform commit
+        
+        //  invoke cancelReservation. Note: new reserveID will not be used
+        //  as this is a whole record
+        boolean r = this.resRecords.cancelReservation(guestID, rec, 0);
+        
+        if (!r) {
+            // it is rare here. report error
+            ErrorAndLogMsg.GeneralErr(ErrorCode.INTERNAL_ERROR, 
+                    transInfo + "Error deleting record in transfer").printMsg();
+            result = ErrorCode.INTERNAL_ERROR;
+        }
+        
+        // =======================================
+        // send COMMIT request to the NEW port in replyMsg.newPort
+        
+        // use a loop because need to re-send if timeout
+        int retryCnt=0;
+        int newPort = replyMsg.newPort;
+        
+        do {
+            
+            result = ErrorCode.SUCCESS;
+            
+            try {
+                // differentiate if a first try or retry
+                int len;
+                
+                InetSocketAddress newAddr;
+                
+                // the first try is sent to the newPort
+                // however, if it is a re-try, send to general query port
+                if (retryCnt==0) {
+                    len = msgReq.encode(UDPMessage.MessageType.COMMIT_REQ, buf);
+                    newAddr = new InetSocketAddress (addr.getHostName(), newPort);
+                }
+                else {
+                    // here is a retry. As the other host may most possbilly timeout
+                    // and reverted, we can a COMMIT_QUERY to general port
+                    // just to be sure whether the COMMIT is done or not, and also
+                    // get the new reservationId if it is done
+                    len = msgReq.encode(UDPMessage.MessageType.COMMIT_RETRY, buf);
+                    newAddr = addr;
+                }
+                
+                DatagramPacket request = new DatagramPacket(buf, len, newAddr);
+    
+                socket.send(request);
+                
+                ErrorAndLogMsg.LogMsg( transInfo + msgReq.msgType + " message sent to " + 
+                        targetHotel + "\n" + msgReq );
+                
+            } catch (Exception e) {
+                ErrorAndLogMsg.ExceptionErr(e, transInfo + "Packet send to " + addr.toString() + "failed.");
+                result = ErrorCode.EXCEPTION_THROWED;
+            }
+            
+            if (result!=ErrorCode.SUCCESS) {
+                // we have problem here
+                // roll back
+                
+                // add the record back
+                resRecords.makeReservation(guestID, rec);
+                
+                ErrorAndLogMsg.LogMsg(transInfo + "Terminated ErrorCode:" + result);
+                
+                // TODO , unlock the record
+                
+                return result;
+            }
+            
+            // =======================================
+            // Receive Ack
+            reply = new DatagramPacket(buf, buf.length);
+    
+            replyMsg = null;
+            
+            result = ErrorCode.SUCCESS;
+            
+            try {
+                socket.setSoTimeout( SOCKET_TIMEOUT );
+                socket.receive(reply);
+                
+                buf = reply.getData();
+                
+                replyMsg = UDPMessage.decode(buf);
+                
+                ErrorAndLogMsg.LogMsg(transInfo + "Received ack:\nMsg:" + replyMsg);
+            } catch (SocketTimeoutException e) {
+                result = ErrorCode.TIME_OUT; 
+            } catch (Exception e) {
+                ErrorAndLogMsg.ExceptionErr(e, transInfo + "Exception receiving Vote Reply");  
+                result = ErrorCode.EXCEPTION_THROWED;
+            }
+            
+            retryCnt ++;
+ 
+        } while (result ==ErrorCode.TIME_OUT && retryCnt <3);
+        
+        
+        if (replyMsg!=null) {
+            // check whether it is a valid reply
+            
+            if (replyMsg.msgType!=UDPMessage.MessageType.COMMIT_ACK ||
+                replyMsg.resID != reservationID) {
+                // invalid
+                replyMsg = null;
+                result = ErrorCode.INTERNAL_ERROR;
+            } else if (replyMsg.returnCode != 1) {
+                // returnCode indicates whether the other server successfully processed
+                // the transaction or not
+                // if yes, commit the transaction as well normally
+                // if not, also rollback
+                replyMsg = null;
+                
+                if (retryCnt>1) 
+                    // we ever retried the COMMIT request. so the problem is due to timeout
+                    result = ErrorCode.TIME_OUT; 
+                else
+                    // this is an other error
+                    result = ErrorCode.INTERNAL_ERROR;
+            }
+            
+            
+        } 
+        
+        if (replyMsg==null) {
+            // roll back
+            resRecords.makeReservation(guestID, rec);
+            
+            ErrorAndLogMsg.LogMsg(transInfo + "Terminated. ErrorCode=" + result);
+            // TODO, unlock the record
+            return result;
+        }
+        
+        // =======================================
+        // Now we can end the transaction
+        
+        // increase the room counters to release the rooms
+        
+        AvailableRoomCounts cnts = this.roomCounts.get(roomType);
+        // shall not be null
+        
+        if (cnts!=null) {
+            cnts.incrementDays(checkInDate, checkOutDate);
+        }
+        
+        // return the newID
+        newID[0] = replyMsg.newResID;//replyMsg.
+        
+        // finishing the transaction. close the socket
+        socket.close();
+        
+        ErrorAndLogMsg.LogMsg(transInfo + "Completed.");
+        
+        return ErrorCode.SUCCESS;
+    }
+    
+    
+    private void handleQueryCommit (DatagramSocket socket, DatagramPacket request) {
+        
+        byte[] buf;
+
+        // =======================================
+        // we have received the request packet as Query to Commit
+        // decode and validate it first
+        // and do preservation
+        boolean valid = true;
+        
+        buf = request.getData();
+        UDPMessage msgReq = UDPMessage.decode(buf);
+        
+        if (msgReq.msgType != UDPMessage.MessageType.QUERY_COMMIT_REQ ||
+            !msgReq.targetHotel.equals(prof.shortName) )
+            valid = false;
+        
+        if (!valid) {
+            ErrorAndLogMsg.LogMsg("Invalid request.\n" + msgReq);
+            return;
+        }
+        
+        //log the start of transaction
+        String transInfo = "TransID:" + msgReq.resID + "-";
+        ErrorAndLogMsg.LogMsg(transInfo + "Transaction started.");
+        
+        int returnCode = 1; //1 for OK, other for NOT OK
+        if (valid) {
+            // check availability counts
+            AvailableRoomCounts cnts = this.roomCounts.get(msgReq.roomType);
+            if (cnts==null) {
+                returnCode = 0;
+            }
+            else {
+                // try to preserve the rooms
+                if (cnts.decrementDays(msgReq.inDate, msgReq.outDate))
+                    returnCode = 1;
+                else
+                    returnCode = 0;
+            }
+        }        
+        
+        // ======================================
+        // Send Vote OK/NOT OK via a existing socket
+        // with the new Port indicated (if OK)
+        UDPMessage msgReply = (UDPMessage) msgReq.clone();
+        
+        ErrorCode result = ErrorCode.SUCCESS;
+        
+        DatagramSocket newSocket = null;
+        
+        if (returnCode ==1) {
+            // create new socket only for OK case
+            try {
+                newSocket = new DatagramSocket();
+                msgReply.newPort = newSocket.getLocalPort();
+            } catch (SocketException e) {
+                ErrorAndLogMsg.ExceptionErr(e, "Exception creating transaction socket.").printMsg();
+                result = ErrorCode.EXCEPTION_THROWED;
+            }
+        } else {
+            // otherwise, use the current socket to send back result
+            newSocket = null;
+            msgReply.newPort = 0; // no new port
+        }
+        
+        if (result == ErrorCode.SUCCESS) {
+            
+            try {
+                
+                msgReply.returnCode = returnCode;
+                
+                int len = msgReply.encode(
+                        UDPMessage.MessageType.VOTE_REPLY, buf);
+                
+                DatagramPacket reply = new DatagramPacket(buf, len, 
+                        request.getSocketAddress());
+    
+                // use the existing socket to send
+                socket.send(reply);
+                
+                ErrorAndLogMsg.LogMsg( transInfo + "Vote message RETCODE=" + returnCode + " sent to " + 
+                        msgReq.hotelName + "\n" + msgReply );
+                
+            } catch (Exception e) {
+                ErrorAndLogMsg.LogMsg(transInfo + "Packet send to " + 
+                      request.getSocketAddress().toString() + "failed.");
+                result = ErrorCode.EXCEPTION_THROWED;
+            }
+        }
+        
+        if (result!=ErrorCode.SUCCESS) {
+            // we have problem here
+            // roll back if we have decreased the room count
+
+            if (returnCode ==1) {
+                // need to roll back only if there is availble room and decreased the count
+                AvailableRoomCounts cnts = this.roomCounts.get(msgReq.roomType);
+                if (cnts!=null)
+                    // release the rooms
+                    cnts.incrementDays(msgReq.inDate, msgReq.outDate);
+            } 
+            
+            ErrorAndLogMsg.LogMsg(transInfo + "Terminated" + result);
+            return;
+        } else {
+            // Quote message sent success.
+            // Proceed only if we send a QUOTE OK
+            if (returnCode !=1) {
+                ErrorAndLogMsg.LogMsg(transInfo + "Transaction Completed.");
+                return;
+            }
+        }
+        
+        // =======================================
+        // now we create a new thread to listen in the new socket for
+        // receiving Commit Request and processing
+            
+        class CommitRequestExecutor extends Thread {
+            
+            UDPMessage msgReq; // the first Query to Commit message received
+            DatagramSocket socket; // the listening socket
+            
+            CommitRequestExecutor (
+                    UDPMessage msgReq,
+                    DatagramSocket socket) {
+                this.msgReq = msgReq;
+                this.socket = socket;
+            }
+            
+            @Override
+            public void run() {
+                String transInfo = "TransID:" + msgReq.resID + "-";
+                // ======================================
+                // now receive the Commit Request in the new socket
+                byte[] buf = new byte[2000];
+                
+                DatagramPacket req = new DatagramPacket(buf, buf.length);
+
+                UDPMessage msgReqCommit = null;
+                
+                ErrorCode result = ErrorCode.SUCCESS;
+                
+                try {
+                    socket.setSoTimeout( SOCKET_TIMEOUT );
+                    socket.receive(req);
+                    
+                    buf = req.getData();
+                    
+                    msgReqCommit = UDPMessage.decode(buf);
+                    
+                    ErrorAndLogMsg.LogMsg(transInfo + "Recevied COMMIT Request:\n" + msgReqCommit);
+                } catch (SocketTimeoutException e) {
+                    result = ErrorCode.TIME_OUT; 
+                } catch (Exception e) {
+                    ErrorAndLogMsg.ExceptionErr(e, transInfo + "Exception receiving COMMIT REQUEST");
+                    result = ErrorCode.EXCEPTION_THROWED;
+                }
+                
+                if (msgReqCommit!=null) {
+                    // check if it is valid
+                    if (msgReqCommit.msgType != UDPMessage.MessageType.COMMIT_REQ ||
+                        msgReqCommit.resID != msgReq.resID ) {
+                        result = ErrorCode.INTERNAL_ERROR;
+                        msgReqCommit = null;
+                    }
+
+                }
+                
+                if (msgReqCommit == null) {
+                    // any error when receiving
+                    // need to roll back
+                    // we have access to the object here
+                    AvailableRoomCounts cnts; // the reference to the server object
+                    cnts = roomCounts.get(msgReq.roomType);
+                    if (cnts!=null)
+                        cnts.incrementDays(msgReq.inDate, msgReq.outDate);
+                    
+                    ErrorAndLogMsg.LogMsg(transInfo + "Transaction terminated. ErrorCode=" + result);
+                    return;
+                }
+
+                
+                // ======================================
+                // now got the Commit Request, perform commit
+                
+                // add a reservation record
+                Record newRec = new Record (
+                        getNewReserveID(),
+                        msgReq.guestID,
+                        prof.shortName,
+                        msgReq.roomType,
+                        msgReq.inDate,
+                        msgReq.outDate,
+                        msgReq.rate);
+                
+                boolean r = resRecords.makeReservation(msgReq.guestID, newRec);
+                
+                result = ErrorCode.SUCCESS;
+
+                if (!r) {
+                    ErrorAndLogMsg.GeneralErr(ErrorCode.INTERNAL_ERROR, 
+                            transInfo + "internal error, can not commit with new record." ).printMsg();
+                    result = ErrorCode.INTERNAL_ERROR;
+                }
+                
+                // ==========================================
+                // now send the Ack, either success or failure
+                try {
+                    UDPMessage msgReply = (UDPMessage) msgReq.clone();
+                    
+                    msgReply.newResID = newRec.resID;
+                    
+                    msgReply.returnCode = (result==ErrorCode.SUCCESS?1:0);
+                    
+                    int len = msgReply.encode(
+                            UDPMessage.MessageType.COMMIT_ACK, buf);
+                    
+                    DatagramPacket reply = new DatagramPacket(buf, len, 
+                           req.getSocketAddress());
+        
+                    socket.send(reply);
+                } catch (Exception e) {
+                    ErrorAndLogMsg.ExceptionErr(e, transInfo + "exception sending COMMIT REPLY").printMsg();
+                    result = ErrorCode.EXCEPTION_THROWED;
+                }
+                
+                // if record delete error, or ack send failure, or any other error, roll back
+                if (result!=ErrorCode.SUCCESS) {
+                    resRecords.cancelReservation(msgReq.guestID, newRec, 0);
+                    AvailableRoomCounts cnts; // the reference to the server object
+                    cnts = roomCounts.get(msgReq.roomType);
+                    if (cnts!=null)
+                        cnts.incrementDays(msgReq.inDate, msgReq.outDate);
+                    ErrorAndLogMsg.LogMsg(transInfo + "Transaction terminated. ErrorCode=" + result);
+                } else                
+                    ErrorAndLogMsg.LogMsg(transInfo + "Transaction completed."); 
+                
+                socket.close();
+            }
+            
+        } 
+        
+        new CommitRequestExecutor (msgReq, newSocket).start();
+       
+    }
+    
+    
     
     /* cross check reserve records and avail counts, to see whether they are match
      * This check is supposed to be only performed in idle state, otherwise, the inconsistency happens which
@@ -1006,13 +1807,13 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             @Override
             public void doOperation(Record r) {
 
-                Date startDate = roomCounts.get(r.roomType).getBookingStartDate();
-                Date inDate = r.checkInDate;
-                Date outDate = r.checkOutDate;
+                SimpleDate startDate = roomCounts.get(r.roomType).getBookingStartDate();
+                SimpleDate inDate = r.checkInDate;
+                SimpleDate outDate = r.checkOutDate;
                 
                 // index of start date and end date
-                int i = AvailableRoomCounts.dateDiff(startDate, inDate);
-                int j = AvailableRoomCounts.dateDiff(startDate, outDate)-1;
+                int i = SimpleDate.dateDiff(startDate, inDate);
+                int j = SimpleDate.dateDiff(startDate, outDate)-1;
                 
                 // expanse the arraylist if needed
                 ArrayList<int[]> list = counts.get(r.roomType);
@@ -1029,7 +1830,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                     n[0] --;
                     
                     i++;
-                }
+                } 
             }
         } );
         
@@ -1039,21 +1840,18 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             ArrayList<int[]> list_gen = counts.get(typ);
             AvailableRoomCounts cnts = roomCounts.get(typ);
             
-            Date startDate = cnts.getBookingStartDate();
+            SimpleDate dt = cnts.getBookingStartDate();
             
             for (int i=0; i<list_gen.size();i++) {
                 // compare the #i count
-                Calendar cal = Calendar.getInstance();
-                cal.setTime(startDate);
-                cal.add(Calendar.DATE, i);
-                Date dt = cal.getTime();
-                
                 int cnt = cnts.getCount(dt);
                 
                 if (cnt != list_gen.get(i)[0]) {
                     match = false;
                     break;
                 }
+                
+                dt.nextDay();
             }
             if (!match) break;
         }
@@ -1070,5 +1868,8 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             return true;
         
     }
+
+
+
 
 }

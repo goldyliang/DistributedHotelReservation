@@ -1,22 +1,14 @@
 package Client;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.ParsePosition;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
 import java.util.Iterator;
-import java.util.Locale;
 import java.util.Scanner;
 
 import HotelServerInterface.ErrorAndLogMsg;
-import HotelServerInterface.IHotelServer;
 import HotelServerInterface.ErrorAndLogMsg.MsgType;
 import HotelServerInterface.IHotelServer.Availability;
 import HotelServerInterface.IHotelServer.HotelProfile;
@@ -24,30 +16,29 @@ import HotelServerInterface.IHotelServer.Record;
 import HotelServerInterface.IHotelServer.RoomType;
 import Client.HotelClient.HotelServerWrapper;
 
-import java.text.ParseException;
+
+import miscutil.SimpleDate;
 
 public class HotelClientCmdLine {
 
 	static Scanner keyboard;
-	
-	static DateFormat df = new SimpleDateFormat (IHotelServer.dateFormat);
-	
+		
 	static final String DEFAULT_LOG_FILE_PATH = "ClientLog.txt"; // add time stamp
 
 	// get a date from input
 	// return null if user input empty string
-	static Date inputDate () {
+	static SimpleDate inputDate () {
 		
 		int tryCnt=0;
 		
 		do {
 			try {
-				System.out.print ("(" + IHotelServer.dateFormat + "). Prese <Enter> to Cancel:");
+				System.out.print ("(" + SimpleDate.getDateFormat() + "). Prese <Enter> to Cancel:");
 				String s = keyboard.nextLine();
 				
 				if (s==null || s.isEmpty() ) return null;
 				
-				return df.parse(s);//, new ParsePosition(0));
+				return SimpleDate.parse(s);//, new ParsePosition(0));
 	
 			} catch (ParseException e) {
 				System.out.println ("Try again...");
@@ -58,9 +49,9 @@ public class HotelClientCmdLine {
 
 	}
 	
-	static String dateToString (Date date) {
+	/*static String dateToString (Date date) {
 		return df.format(date);
-	}
+	} */
 	
 	static Record inputOneRecord () {
 		Record r = new Record();
@@ -100,18 +91,12 @@ public class HotelClientCmdLine {
 		
 		valid = false;
 		
-		Date today = null;
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");      
-        try {
-            today = sdf.parse(sdf.format(new Date()));
-        } catch (ParseException e) {
-            e.printStackTrace();
-        } // set to today
+		SimpleDate today =  new SimpleDate();
         
 		do {
 			r.checkInDate = inputDate();
 			if (r.checkInDate == null) break;
-			System.out.println ("Entered check in date:" + dateToString(r.checkInDate));
+			System.out.println ("Entered check in date:" + r.checkInDate);
 			valid = !r.checkInDate.before(today);
 			if (!valid)
 				System.out.println ("Check in date not valid. Try again..\n");
@@ -125,7 +110,7 @@ public class HotelClientCmdLine {
 		do {
 			r.checkOutDate = inputDate();
 			if (r.checkOutDate ==null) break;
-			System.out.println ("Entered check out date:" + dateToString(r.checkOutDate));
+			System.out.println ("Entered check out date:" + r.checkOutDate);
 			valid = r.checkOutDate.after(r.checkInDate);
 			if (!valid)
 				System.out.println ("Check out date not valid. Try again..\n");
@@ -148,6 +133,8 @@ public class HotelClientCmdLine {
 	
 	public static void main (String [] args) {
 		
+	    int[] newID = new int[1]; // last reservation ID
+	    
 		if (args.length <2) {
 			System.out.println ("Need parameters: Host Port\n");
 			return;
@@ -218,9 +205,10 @@ public class HotelClientCmdLine {
 					            "2. Check room availability. \n" +
 			                    "3. Reserve rooms.\n" +
 			                    "4. Cancel Reservation.\n" +
-					            "5. Query guest reservation.\n"+
-			                    "6. Backgound update hotel information.\n" +
-			                    "7. Exit.\n" +
+			                    "5. Transfer Reservation.\n" +
+					         //   "**5. [NOT SUPPORT] Query guest reservation.\n"+
+			                 //   "**6. [NOT SUPPORT] Backgound update hotel information.\n" +
+			                    "6. Exit.\n" +
 			                    "========================\n");
 			
 			System.out.println ("Please input (1-7):");
@@ -236,144 +224,271 @@ public class HotelClientCmdLine {
 
 			
 			switch (cmd) {
-			case 1: // List all hotel profiles
-				Iterator <HotelServerWrapper> iter = client.getServerIterator();
-				
-				while (iter.hasNext()) {
-					HotelServerWrapper srv = iter.next();
-					HotelProfile prof = srv.prof;
-					
-					System.out.println ("-----------\nShort Name:" + prof.shortName);
-					System.out.println (prof.fullName);
-					System.out.println (prof.descText);
-					for (RoomType typ:RoomType.values()) {
-						System.out.println ( typ.toString() + ":" + 
-										     prof.totalRooms.get(typ)
-										   );
-					}
-				}
-				break;
-			case 2: {
-				// check room availability
-				
-				Record r = inputOneRecord();
-				
-				if (r==null) {
-					System.out.println ("Operation aborted....\n");
-					break;
-				}
-				
-				ArrayList <Availability> avails = new ArrayList<Availability> ();
-				
-				m = client.checkAvailability (r, avails);
-				
-				if (m==null || !m.anyError()) {
-					//success, print out all information
-					
-					System.out.print ("Available hotels for Room " + r.roomType.toString() + " ");
-					System.out.println (df.format(r.checkInDate) + " - " + df.format(r.checkOutDate));
-					
-					System.out.println("Hotel\tAvailable Rooms\tRate");
-					System.out.println("-----------------------");
+    			case 1: // List all hotel profiles
+    				Iterator <HotelServerWrapper> iter = client.getServerIterator();
+    				
+    				while (iter.hasNext()) {
+    					HotelServerWrapper srv = iter.next();
+    					HotelProfile prof = srv.prof;
+    					
+    					if (srv.prof!=null) {
+        					System.out.println ("-----------\nShort Name:" + prof.shortName);
+        					System.out.println (prof.fullName);
+        					System.out.println (prof.descText);
+        					for (RoomType typ:RoomType.values()) {
+        						System.out.println ( typ.toString() + ":" + 
+        										     prof.totalRooms.get(typ)
+        										   );
+        					}
+    					}
+    				}
+    				break;
+    			case 2: {
+    				// check room availability
+    				
+    				Record r = inputOneRecord();
+    				
+    				if (r==null) {
+    					System.out.println ("Operation aborted....\n");
+    					break;
+    				}
+    				
+    				ArrayList <Availability> avails = new ArrayList<Availability> ();
+    				
+    				m = client.checkAvailability (r, avails);
+    				
+    				if (m==null || !m.anyError()) {
+    					//success, print out all information
+    					
+    					System.out.print ("Available hotels for Room " + r.roomType.toString() + " ");
+    					System.out.println (r.checkInDate + " - " + r.checkOutDate);
+    					
+    					System.out.println("Hotel\tAvailable Rooms\tRate");
+    					System.out.println("-----------------------");
+    
+    					for (Availability av : avails) {
+    						System.out.println (av.hotelName + "\t" + av.availCount + "\t" + av.rate);
+    					}
+    				} else {
+    					m.printMsg();
+    					System.out.println ("Availability query failed. ErrorCode:" + 
+    							m.errorCode().toString());
+    				}			
+    				
+    				break;
+    			}
+    				
+    			case 3: // Reserve a room
+    				
+    			{
+    				Record r = inputOneRecord();
+    				
+    				if (r==null) {
+    					System.out.println ("Operation aborted....\n");
+    					break;
+    				}
+    				
+    				// Try to reserve now
+    				
+    				m = client.reserveHotel(
+    				        r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate,
+    				        newID);
+    				
+    				if (m==null || !m.anyError()) {
+    					//success
+    					System.out.println ("Reservation confirmed. ReservationID:" + newID[0] +
+    					        " Enjoy your Hotel!\n");
+    					
+    				} else {
+    					m.printMsg();
+    				}			
+    				
+    				break;
+    			}
+    			case 4: // cancel reservation
+    			{
+    				Record r = inputOneRecord();
+    				
+    				if (r==null) {
+    					System.out.println ("Operation aborted....\n");
+    					break;
+    				}
+    				
+    				// Try to cancel now
+    				
+    				m = client.cancelHotel(r.guestID, 
+    				        r.shortName, r.roomType, 
+    				        r.checkInDate, r.checkOutDate);
+    				
+    				if (m==null || !m.anyError()) {
+    					//success
+    					System.out.println ("Reservation cancelled!\n");
+    				} else {
+    					m.printMsg();
+    				}			
+    				
+    				break;
+    			}
+    			case 5: // transfer reservation
+    			{
+    			    Record r = inputOneRecord();
+    			    
+    			    if (r==null) {
+                        System.out.println ("Operation aborted....\n");
+                        break;
+    			    }
+    			    
+    			    System.out.print ("Input reservation ID:");
+    			    String ln = keyboard.nextLine();
+    			    int id = Integer.parseInt(ln);
+    			    
+    			    
+    			    if (id>0) {
+    			        System.out.print ("Input target Hotel:");
+    			        String targetHotel = keyboard.nextLine();
+    			        
+    			        int [] idHolder = new int[1];
+    			        idHolder [0] = id;
+    			        
+    			        if (targetHotel!=null && !targetHotel.isEmpty()) {
+        			        m = client.transferRoom(
+        			                r.guestID, 
+        			                idHolder, 
+        			                r.shortName, 
+        			                r.roomType, 
+        			                r.checkInDate, 
+        			                r.checkOutDate, 
+        			                targetHotel);
+        			        
+        		             if (m==null || !m.anyError()) {
+        		                    //success
+        		                    System.out.println (
+        		                            "Transferation success! New reservation ID:" +
+        		                            idHolder[0] + "\n");
+        		                } else {
+        		                    m.printMsg();
+        		                }           
+    			        }
+    			    } else
+    			        System.out.println ("Invalid ID:" + ln);
+    			    
+    			    break;
+    			    
+    			/*    // query reservation records for one guest
+    			{
+    			    System.out.println ("Function not supported at thsi time...");
+    			    break;
+    			    /*
+    				// Input Guest ID
+    				System.out.print ("Guest ID:");
+    				String guestID = keyboard.nextLine();
+    				if (guestID==null || guestID.isEmpty())
+    					break;
+    				
+    				Collection <Record> records = new ArrayList<Record> ();
+    				
+    				m = client.getReserveRecords(guestID, records);
+    				
+    				if (records.isEmpty())
+    					System.out.println ("No records found.\n");
+    				else {
+    					int i = 0;
+    					for (Record r:records) {
+    						i ++;
+    						System.out.println ("Record #" + i + "--------------\n");
+    						System.out.println (r);
+    					}
+    				}
+    				
+    				if (m!=null && m.anyError()) {
+    					System.out.println ("Some error retrieving records.");
+    					m.printMsg();
+    				}
+    				
+    				break; */
+    			}
+    			/*case 6:  {
+    			    System.out.println ("Function not supported at thsi time...");
+    			    break;
+    			    
+    				m = client.startHotelServerBackgroundScan();
+    				if (m.anyError()) {
+    					System.out.println ("Background process start failed. \n");
+    				}
+    				break; 
+    			} */
+    			case 6:
+    			    // stop the background scan thread
+    			    client.stopHotelServerBackgroundScan();
+    				return;
+    				
+                case 12: {
+                    // check room availability quick test
+                    
+                    Record r = new Record (
+                            0,
+                            "123",
+                            "Gordon",
+                            RoomType.SINGLE,
+                            new SimpleDate (2015,12,1),
+                            new SimpleDate (2015,12,10),
+                            0);
+                    
+                    ArrayList <Availability> avails = new ArrayList<Availability> ();
+                    
+                    m = client.checkAvailability (r, avails);
+                    
+                    if (m==null || !m.anyError()) {
+                        //success, print out all information
+                        
+                        System.out.print ("Available hotels for Room " + r.roomType.toString() + " ");
+                        System.out.println (r.checkInDate + " - " + r.checkOutDate);
+                        
+                        System.out.println("Hotel\tAvailable Rooms\tRate");
+                        System.out.println("-----------------------");
+    
+                        for (Availability av : avails) {
+                            System.out.println (av.hotelName + "\t" + av.availCount + "\t" + av.rate);
+                        }
+                    } else {
+                        m.printMsg();
+                        System.out.println ("Availability query failed. ErrorCode:" + 
+                                m.errorCode().toString());
+                    }           
+                    
+                    break;
+                }
+                
+    				
+    			case 13: {
+    	             // short cut for testing reservation
+    			    
+    			    
+                    m = client.reserveHotel("123", "Gordon", RoomType.SINGLE, 
+                           new SimpleDate (2015, 12, 5), 
+                           new SimpleDate (2015, 12, 10), 
+                           newID);
+                    
+                    if (m!=null) m.printMsg();
+                    else
+                        System.out.println ("Success. ResID=" + newID[0]);
+                    break;
+    			}
+    			case 15: {
+    			    // short cut for testing transfer
+    	                
 
-					for (Availability av : avails) {
-						System.out.println (av.hotelName + "\t" + av.availCount + "\t" + av.rate);
-					}
-				} else {
-					m.printMsg();
-					System.out.println ("Availability query failed. ErrorCode:" + 
-							m.errorCode().toString());
-				}			
-				
-				break;
-			}
-				
-			case 3: // Reserve a room
-				
-			{
-				Record r = inputOneRecord();
-				
-				if (r==null) {
-					System.out.println ("Operation aborted....\n");
-					break;
-				}
-				
-				// Try to reserve now
-				
-				m = client.reserveHotel(r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate);
-				
-				if (m==null || !m.anyError()) {
-					//success
-					System.out.println ("Reservation confirmed! Enjoy your Hotel!\n");
-				} else {
-					m.printMsg();
-				}			
-				
-				break;
-			}
-			case 4: // cancel reservation
-			{
-				Record r = inputOneRecord();
-				
-				if (r==null) {
-					System.out.println ("Operation aborted....\n");
-					break;
-				}
-				
-				// Try to cancel now
-				
-				m = client.cancelHotel(r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate);
-				
-				if (m==null || !m.anyError()) {
-					//success
-					System.out.println ("Reservation cancelled!\n");
-				} else {
-					m.printMsg();
-				}			
-				
-				break;
-			}
-			case 5: // query reservation records for one guest
-			{
-				// Input Guest ID
-				System.out.print ("Guest ID:");
-				String guestID = keyboard.nextLine();
-				if (guestID==null || guestID.isEmpty())
-					break;
-				
-				Collection <Record> records = new ArrayList<Record> ();
-				
-				m = client.getReserveRecords(guestID, records);
-				
-				if (records.isEmpty())
-					System.out.println ("No records found.\n");
-				else {
-					int i = 0;
-					for (Record r:records) {
-						i ++;
-						System.out.println ("Record #" + i + "--------------\n");
-						System.out.println (r);
-					}
-				}
-				
-				if (m!=null && m.anyError()) {
-					System.out.println ("Some error retrieving records.");
-					m.printMsg();
-				}
-				
-				break;
-			}
-			case 6:  {
-				m = client.startHotelServerBackgroundScan();
-				if (m.anyError()) {
-					System.out.println ("Background process start failed. \n");
-				}
-				break;
-			}
-			case 7:
-			    // stop the background scan thread
-			    client.stopHotelServerBackgroundScan();
-				return;
+    			    m = client.transferRoom("123", newID, 
+    			            "Gordon", RoomType.SINGLE,
+    			            new SimpleDate (2015, 12, 5), 
+    			            new SimpleDate (2015, 12, 10), 
+                            "Star");
+                    if (m!=null) m.printMsg();
+                    else
+                        System.out.println ("Success. ResID=" + newID[0]);
+                    
+                    break;
+    			}
 			}
 		} while (true);
 	}

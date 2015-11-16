@@ -1,14 +1,20 @@
-alias admin='java -classpath /home/gordon/workspace/DHRS/bin HotelServer.HotelCentralAdmin 1099 HotelCentralAdmin'
 
-alias gordon='java -classpath /home/gordon/workspace/DHRS/bin -Djava.security.policy=server.policy  -Djava.rmi.server.hostname=localhost HotelServer.HotelServer config.properties.Gordon'
 
-alias star='java -classpath /home/gordon/workspace/DHRS/bin -Djava.security.policy=server.policy  -Djava.rmi.server.hostname=localhost HotelServer.HotelServer config.properties.Star'
+alias gordon='java -classpath /home/gordon/workspace/DHRS_Corba/bin config.properties.Gordon'
 
-alias motel='java -classpath /home/gordon/workspace/DHRS/bin -Djava.security.policy=server.policy  -Djava.rmi.server.hostname=localhost HotelServer.HotelServer config.properties.Motel'
+alias star='java -classpath /home/gordon/workspace/DHRS_Corba/bin -Djava.security.policy=server.policy  -Djava.rmi.server.hostname=localhost HotelServer.HotelServer config.properties.Star'
 
-alias client='java -classpath /home/gordon/workspace/DHRS/bin Client.HotelClientCmdLine localhost 1099'
+alias motel='java -classpath /home/gordon/workspace/DHRS_Corba/bin - Djava.security.policy=server.policy  -Djava.rmi.server.hostname=localhost HotelServer.HotelServer config.properties.Motel'
+
+alias client='java -classpath /home/gordon/workspace/DHRS_Corba/bin Client.HotelClientCmdLine localhost 1099'
 
 alias manager='java -classpath /home/gordon/workspace/DHRS/bin Client.ManagerCmdLine localhost 1099'
 
 
+alias names='orbd -ORBInitialPort 1050&'
 
+alias stress1 = 'java -classpath /home/gordon/workspace/DHRS/bin Client.HotelClientStressTester localhost 1099 1 100 120 1 Y'
+alias stress2 = 'java -classpath /home/gordon/workspace/DHRS/bin Client.HotelClientStressTester localhost 1099 2 100 120 1 Y'
+alias stress3 = 'java -classpath /home/gordon/workspace/DHRS/bin Client.HotelClientStressTester localhost 1099 3 100 120 1 Y'
+alias stress4 = 'java -classpath /home/gordon/workspace/DHRS/bin Client.HotelClientStressTester localhost 1099 4 100 120 1 Y'
+alias stress5 = 'java -classpath /home/gordon/workspace/DHRS/bin Client.HotelClientStressTester localhost 1099 5 100 120 1 Y'

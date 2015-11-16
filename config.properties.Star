@@ -1,5 +1,5 @@
 RegistryHost = localhost
-RegistryPort = 1099
+RegistryPort = 1050
 AdminName = HotelCentralAdmin
 BindName = Star
 FullName = Star Hotel
@@ -18,6 +18,6 @@ ManagerPassword = pass
 QueryPort = 5001
 
 LogFile = ServerLog-Star.txt
-LogQueries = 1
+LogQueries = 0
 
 

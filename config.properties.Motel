@@ -1,5 +1,5 @@
 RegistryHost = localhost
-RegistryPort = 1099
+RegistryPort = 1050
 AdminName = HotelCentralAdmin
 BindName = Motel
 FullName = Cheap Motel
@@ -18,7 +18,7 @@ ManagerPassword = pass
 QueryPort = 5002
 
 LogFile = ServerLog-Motel.txt
-LogQueries = 1
+LogQueries = 0
 
 
 

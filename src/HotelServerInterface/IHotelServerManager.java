@@ -2,14 +2,14 @@ package HotelServerInterface;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.util.Date;
 
+import miscutil.SimpleDate;
 import HotelServerInterface.IHotelServer.Record;
 
 public interface IHotelServerManager extends Remote {
 	
-	public Record[] getServiceReport (Date serviceDate) throws RemoteException;
+	public Record[] getServiceReport (SimpleDate serviceDate) throws RemoteException;
 	
-	public Record[] getStatusReport (Date date) throws RemoteException;
+	public Record[] getStatusReport (SimpleDate date) throws RemoteException;
 	
 }

@@ -3,12 +3,9 @@ package HotelServer;
 import static org.junit.Assert.*;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -16,81 +13,61 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import miscutil.SimpleDate;
+
 import org.junit.Test;
 
 public class AvailableRoomCountsTest {
 
 	//AvailableRoomCounts cnt; // = new AvailableRoomCounts(5, 30);
 
-	Date today;// = new Date();
-
-	public AvailableRoomCountsTest () {
-	    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");      
-		try {
-			today = sdf.parse(sdf.format(new Date()));
-		} catch (ParseException e) {
-			e.printStackTrace();
-		} // set to today
-	}
-
+	SimpleDate today = new SimpleDate();// = new Date();
 	
-	Date getDateByDelta (Date d, int delta)
-	{
-	    Calendar cal = Calendar.getInstance();
-	    cal.setTime(d);
-	    cal.add(Calendar.DATE, delta);
-	    
-	    return cal.getTime();
-/*		if (delta>=0)
-			return new Date (d.getTime() + TimeUnit.DAYS.toMillis(delta));
-		else
-			return new Date (d.getTime() - TimeUnit.DAYS.toMillis(-delta));*/
-				
-	}
 	
 	void verifyCnts (AvailableRoomCounts cnt, int d1, int d2, int expected) {
 		for (int i=d1;i<=d2;i++)
-			assertEquals (expected, cnt.query(getDateByDelta(today,i), getDateByDelta(today,i+1)));
+			assertEquals (expected, cnt.query(
+			        SimpleDate.getDateByDelta(today,i), 
+			        SimpleDate.getDateByDelta(today,i+1)));
 
 	}
 	
 	void verifyLen (AvailableRoomCounts cnt, int len) {
-		Date end = getDateByDelta (today, len-1); //new Date ( today.getTime() + (long)30 * 24 * 3600* 1000);
+	    SimpleDate end = SimpleDate.getDateByDelta (today, len-1); //new Date ( today.getTime() + (long)30 * 24 * 3600* 1000);
 		assertEquals (end, cnt.getBookingEndDate());
 	}
 	
 	@Test
 	public void testDate() {
 	    
-       SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");      
-       Date d1;
-       Date d2;
+       SimpleDate d1;
+       SimpleDate d2;
        
         try {
-            d1 = sdf.parse("2015-12-5");
-            d2 = sdf.parse("2015-12-10");
-            assertEquals (5, AvailableRoomCounts.dateDiff(d1,d2));
+            d1 = SimpleDate.parse("2015/12/5");
+            d2 = SimpleDate.parse("2015/12/10");
+            assertEquals (5, SimpleDate.dateDiff(d1,d2));
             
-            d1 = sdf.parse("2015-10-29");
-            d2 = sdf.parse("2015-11-2");
-            assertEquals (4, AvailableRoomCounts.dateDiff(d1,d2));
+            d1 = SimpleDate.parse("2015/10/29");
+            d2 = SimpleDate.parse("2015/11/2");
+            assertEquals (4, SimpleDate.dateDiff(d1,d2));
             
           //  assertEquals (4, AvailableRoomCounts.dateDiff1(d1,d2));
             
-            d1 = sdf.parse("2015-3-1");
-            d2 = sdf.parse("2015-3-10");
-            assertEquals (9, AvailableRoomCounts.dateDiff(d1,d2));
+            d1 = SimpleDate.parse("2015/3/1");
+            d2 = SimpleDate.parse("2015/3/10");
+            assertEquals (9, SimpleDate.dateDiff(d1,d2));
          //   assertEquals (8, AvailableRoomCounts.dateDiff1(d1,d2));
             
-            d1 = sdf.parse("2015-10-29");
-            d2 = sdf.parse("2016-1-7");
-            assertEquals (70, AvailableRoomCounts.dateDiff(d1,d2));
+            d1 = SimpleDate.parse("2015/10/29");
+            d2 = SimpleDate.parse("2016/1/7");
+            assertEquals (70, SimpleDate.dateDiff(d1,d2));
       //      assertEquals (-70, AvailableRoomCounts.dateDiff(d2,d1));
             
-            d1 = sdf.parse("2015-10-29");
-            d2 = sdf.parse("2016-3-17");
+            d1 = SimpleDate.parse("2015/10/29");
+            d2 = SimpleDate.parse("2016/3/17");
             // error here, not going to fix in this program
-            assertEquals (140, AvailableRoomCounts.dateDiff(d1,d2));
+            assertEquals (140, SimpleDate.dateDiff(d1,d2));
 
 
 
@@ -110,20 +87,20 @@ public class AvailableRoomCountsTest {
 		verifyCnts (cnt, 0,29, 5);
 		
 		// verify an query across days
-		int n = cnt.query(today, getDateByDelta(today,7));
+		int n = cnt.query(today, SimpleDate.getDateByDelta(today,7));
 		assertEquals (5, n);
 		verifyLen (cnt, 30);
 		
 		// verify an query resulting increase size of the counts
-		n = cnt.query(today, getDateByDelta(today,35));
+		n = cnt.query(today, SimpleDate.getDateByDelta(today,35));
 		assertEquals(5,n);
 		verifyLen (cnt, 35);
 		
 		// verify decrement
-		assertTrue ("Should be true", cnt.decrementDays(today, getDateByDelta(today, 5)));
-		assertTrue (cnt.decrementDays(getDateByDelta(today,3), getDateByDelta(today, 7)));
-		assertTrue (cnt.decrementDays(getDateByDelta(today,7), getDateByDelta(today, 8)));
-		assertTrue (cnt.decrementDays(getDateByDelta(today,32), getDateByDelta(today, 35)));
+		assertTrue ("Should be true", cnt.decrementDays(today, SimpleDate.getDateByDelta(today, 5)));
+		assertTrue (cnt.decrementDays(SimpleDate.getDateByDelta(today,3), SimpleDate.getDateByDelta(today, 7)));
+		assertTrue (cnt.decrementDays(SimpleDate.getDateByDelta(today,7), SimpleDate.getDateByDelta(today, 8)));
+		assertTrue (cnt.decrementDays(SimpleDate.getDateByDelta(today,32), SimpleDate.getDateByDelta(today, 35)));
 		
 		verifyCnts(cnt, 0,2,4);
 		verifyCnts(cnt, 3,4,3);
@@ -133,7 +110,7 @@ public class AvailableRoomCountsTest {
 		verifyLen(cnt, 35);
 		
 		// decrement with extended days
-		assertTrue (cnt.decrementDays(getDateByDelta(today,33), getDateByDelta(today,37)));
+		assertTrue (cnt.decrementDays(SimpleDate.getDateByDelta(today,33), SimpleDate.getDateByDelta(today,37)));
 		verifyCnts (cnt, 33,34,3);
 		verifyCnts (cnt, 32,32,4);
 		verifyCnts (cnt, 35,36,4);
@@ -141,11 +118,11 @@ public class AvailableRoomCountsTest {
 		verifyLen (cnt, 38);
 		
 		// query with different number in the day range
-		n = cnt.query(getDateByDelta(today, 2), getDateByDelta(today, 6));
+		n = cnt.query(SimpleDate.getDateByDelta(today, 2), SimpleDate.getDateByDelta(today, 6));
 		assertEquals (3, n);
 		
 		// increment test
-		assertTrue (cnt.incrementDays(getDateByDelta(today,4), getDateByDelta(today,8)));
+		assertTrue (cnt.incrementDays(SimpleDate.getDateByDelta(today,4), SimpleDate.getDateByDelta(today,8)));
 		verifyCnts (cnt, 0,2,4);
 		verifyCnts (cnt, 3,3,3);
 		verifyCnts (cnt, 4,4,4);
@@ -153,7 +130,7 @@ public class AvailableRoomCountsTest {
 		verifyCnts (cnt, 8,31,5);
 		
 		//increment test with invalid status
-		assertFalse (cnt.incrementDays(getDateByDelta(today,4), getDateByDelta(today,6)));
+		assertFalse (cnt.incrementDays(SimpleDate.getDateByDelta(today,4), SimpleDate.getDateByDelta(today,6)));
 		verifyCnts (cnt, 0,2,4);
 		verifyCnts (cnt, 3,3,3);
 		verifyCnts (cnt, 4,4,4);
@@ -161,11 +138,11 @@ public class AvailableRoomCountsTest {
 		verifyCnts (cnt, 8,31,5);
 		
 		//query with no room
-		assertTrue (cnt.decrementDays(getDateByDelta(today,3), getDateByDelta(today,4)));
-		assertTrue (cnt.decrementDays(getDateByDelta(today,3), getDateByDelta(today,4)));
-		assertTrue (cnt.decrementDays(getDateByDelta(today,3), getDateByDelta(today,4)));
+		assertTrue (cnt.decrementDays(SimpleDate.getDateByDelta(today,3), SimpleDate.getDateByDelta(today,4)));
+		assertTrue (cnt.decrementDays(SimpleDate.getDateByDelta(today,3), SimpleDate.getDateByDelta(today,4)));
+		assertTrue (cnt.decrementDays(SimpleDate.getDateByDelta(today,3), SimpleDate.getDateByDelta(today,4)));
 
-		assertFalse (cnt.decrementDays(getDateByDelta(today,0), getDateByDelta(today,5)));
+		assertFalse (cnt.decrementDays(SimpleDate.getDateByDelta(today,0), SimpleDate.getDateByDelta(today,5)));
 		verifyCnts (cnt, 0,2,4);
 		verifyCnts (cnt, 3,3,0);
 		verifyCnts (cnt, 4,4,4);
@@ -319,20 +296,20 @@ public class AvailableRoomCountsTest {
 								booking[thread_num][i][2] = outDate;
 								dec_history.remove(h);
 								
-								r=cnt.incrementDays(getDateByDelta(today,inDate), 
-							            getDateByDelta(today,outDate));
+								r=cnt.incrementDays(SimpleDate.getDateByDelta(today,inDate), 
+							            SimpleDate.getDateByDelta(today,outDate));
 							} else
 								r=false;
 						} else {
 							//use the date range from the bookign table
-							r=cnt.incrementDays(getDateByDelta(today,inDate), 
-						            getDateByDelta(today,outDate));
+							r=cnt.incrementDays(SimpleDate.getDateByDelta(today,inDate), 
+						            SimpleDate.getDateByDelta(today,outDate));
 						}
 						
 					}
 					else { //decrement
-						r=cnt.decrementDays(getDateByDelta(today,inDate), 
-					            getDateByDelta(today,outDate));
+						r=cnt.decrementDays(SimpleDate.getDateByDelta(today,inDate), 
+					            SimpleDate.getDateByDelta(today,outDate));
 						
 						if (r)
 							dec_history.add(new int[] {inDate,outDate});
@@ -355,7 +332,7 @@ public class AvailableRoomCountsTest {
 		}
 		
 		//Verify final status
-		int len = cnt.availCounts.size();
+		int len = cnt.getSize();
 		int[] check = new int[len]; //(focus_days_end>initial_days?focus_days_end:initial_days)];
 		for (int i=0;i<len;i++) {check[i]=5;}
 		
@@ -374,21 +351,26 @@ public class AvailableRoomCountsTest {
 							check[k]--;
 				}
 		
-		System.out.println ("End size of counts:" + cnt.availCounts.size());
+		//System.out.println ("End size of counts:" + cnt.availCounts.size());
 
 		
 		System.out.println(Arrays.deepToString(booking));
 		
 		int i=0;
-		for (int[] n:cnt.availCounts) {
+/*		for (int[] n:cnt.availCounts) {
 			System.out.print ("#" + (i++) + ":");
 			System.out.println (n[0]);
+		} */
+		
+		SimpleDate dt = new SimpleDate();
+		for (i=0;i<len;i++)  { 
+			assertEquals ("Date #"+i, check[i], 
+			        cnt.getCount(dt));
+			dt.nextDay();
 		}
 		
-		for (i=0;i<len;i++)
-			assertEquals ("Date #"+i, check[i], cnt.availCounts.get(i)[0]);
-		
-	//	System.out.println (cnt.availCounts);
+	//	1System.out.println (cnt.availCounts);
 	}
+	
 
 }
