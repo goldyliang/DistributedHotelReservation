@@ -58,7 +58,7 @@ public class ErrorAndLogMsg {
 	public ErrorAndLogMsg (MsgType type, String info) {
 		this.type = type;
 		this.info = info;
-		error = null;
+		error = ErrorCode.SUCCESS;
 		exception = null;
 	}
 	

@@ -69,6 +69,9 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     HotelServerImpl serverImpl; // wrapper of server for CORBA interface
     HotelServerManagerImpl serverMgrImpl; // wrapper for manager interface
     CIHotelServerManager serverMgrRef; // the manager referenece to be returned by login 
+    
+    int myReplicaServerID; // -1 if not valid
+    String replicaSurfix;  // "-id" , if server ID is required; "" if not
 
     
     private static int MAX_RESERVATION_ID = 10000;
@@ -106,9 +109,16 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     DatagramSocket listenSocket = null;
 
     
-    public HotelServer ( HotelProfile prof, int queryPort) {
+    public HotelServer ( HotelProfile prof, int queryPort, int serverID) {
         
         this.prof = prof;
+        
+        this.myReplicaServerID = serverID;
+        
+        if (serverID >=0) 
+        	replicaSurfix = "-" + serverID;
+        else
+        	replicaSurfix = "";
         
         roomCounts = new EnumMap <RoomType, AvailableRoomCounts> (RoomType.class);
         for (RoomType t:RoomType.values()) {
@@ -370,7 +380,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                     NamingContextExtHelper.narrow(orb.resolve_initial_references(
                       "NameService"));
             
-            NameComponent bindname[] = ctx.to_name(prof.shortName);
+            NameComponent bindname[] = ctx.to_name(prof.shortName + replicaSurfix);
             ctx.rebind(bindname, serverRef);
             
             System.out.println("Server " + prof.shortName + " bound successful!");
@@ -469,6 +479,8 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     
     //Arg#1 Property file of the server
     //      If missing, just look into the current dir of "config.properties".
+    //Arg#2 Server-ID (replication ID) - Corba registered server name adds "-ID" as suffix
+    //      Or if arg#2 missing, no server-id suffix
     public static void main (String args[]) {
         
         String regHost;
@@ -581,7 +593,10 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         
         // Now we can create the server object
-        HotelServer server = new HotelServer(prof, queryPort);
+        
+        // If server replication ID provided, set it
+        int serverID = (args.length>1? Integer.valueOf(args[1]) : -1);
+        HotelServer server = new HotelServer(prof, queryPort, serverID);
         
         server.managerID = mgrID;
         server.managerPassword = mgrPass;

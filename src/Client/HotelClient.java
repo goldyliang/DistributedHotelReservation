@@ -56,9 +56,22 @@ public class HotelClient {
     
     int serverCnt=0;
     
+    int myReplicaServerID; // -1 if not valid
+    String replicaSurfix;  // "-id" , if server ID is required; "" if not
+    
+    
     //host:port, the rmiregistry url
     public HotelClient () {
         super();
+        myReplicaServerID = -1;
+        replicaSurfix = "";
+    }
+    
+    // only deal with server objects with the surfix of "-ID"
+    public HotelClient (int serverID) {
+    	super();
+    	myReplicaServerID = serverID;
+        replicaSurfix = "-" + serverID;
     }
     
     public Iterator <HotelServerWrapper> getServerIterator () {
@@ -145,6 +158,14 @@ public class HotelClient {
         try {
             org.omg.CORBA.Object serverRef = nc.resolve_str(name);
             
+            String realName;
+            
+            if (this.myReplicaServerID >=0 )
+            	// need to remove the surfix
+            	realName = name.substring(0, name.lastIndexOf(replicaSurfix));
+            else
+            	realName = name;
+            
             System.out.println ("Retrieved server IOR:" + serverRef);
 
             
@@ -152,7 +173,7 @@ public class HotelClient {
             
             HotelServerWrapper srv;
             
-            synchronized (servers) { srv = servers.get(name); }
+            synchronized (servers) { srv = servers.get(realName); }
             
             if (srv==null || reGet) {
                 // new name
@@ -166,9 +187,18 @@ public class HotelClient {
                 if (server!=null) {
                     srv = new HotelServerWrapper();
                     srv.server = server;
-                    srv.prof = server.getProfile();                        
                     
-                    synchronized (servers) { servers.put(name, srv); }
+                    try {
+                    	srv.prof = server.getProfile();   
+                    	
+                        synchronized (servers) { servers.put(realName, srv); }
+
+                    } catch (Exception e) {
+                    	// it is an invalid server
+                    	// ignore for now
+                    	e.printStackTrace();
+                    }
+                    
                 } 
                 
                 return ErrorAndLogMsg.LogMsg("Server object retrieved/updated.");
@@ -242,6 +272,11 @@ public class HotelClient {
         }
 
         return null; */
+    	
+    	if ( this.myReplicaServerID >= 0)
+    		// don't retrieve server objects for now,
+    		// if we are running in replication
+    		return ErrorAndLogMsg.InfoMsg ("No serers added for now");
         
         BindingListHolder bl = new BindingListHolder();
         BindingIteratorHolder bi = new BindingIteratorHolder();
@@ -258,7 +293,22 @@ public class HotelClient {
             if (  bind.binding_type != BindingType.nobject)
                 continue;
             
-            ErrorAndLogMsg m = getSingleHotelServerObject (bind.binding_name[0].id, false);
+            String name = bind.binding_name[0].id;
+            
+            if (myReplicaServerID >= 0) {
+                // need to filter the server objects which belongs to my replication
+            	
+            	int i = name.lastIndexOf(replicaSurfix);
+            	
+            	if (i<=0) 
+            		continue;
+            	
+            	if (i + replicaSurfix.length() != name.length())
+            		// the replicaSurfix shall be at the end of the name
+            		continue;
+            }
+            ErrorAndLogMsg m = getSingleHotelServerObject (
+            		bind.binding_name[0].id, false);
             
             if (m!=null && !m.anyError())
                 new_servers ++;
@@ -281,7 +331,8 @@ public class HotelClient {
         
         if (server_wrap==null) {
             // try to get the server object
-            ErrorAndLogMsg m = getSingleHotelServerObject (hotelName, true);
+        	String name = (this.myReplicaServerID >= 0 ? hotelName + replicaSurfix : hotelName); 
+            ErrorAndLogMsg m = getSingleHotelServerObject (name, true);
             
             if (m==null || !m.anyError()) {
                 server_wrap = servers.get(hotelName);
@@ -316,9 +367,10 @@ public class HotelClient {
             String sRec = newRec.toOneLineString();
             
             if (err == ErrorCode.SUCCESS) {
-                ErrorAndLogMsg.LogMsg("Reserve success: " + sRec).printMsg();
+                ErrorAndLogMsg r = ErrorAndLogMsg.LogMsg("Reserve success: " + sRec);
+                r.printMsg();
                 
-                return null;
+                return r;
             } else {
                 ErrorAndLogMsg.LogMsg("Reserve failure " + err.toString() + ":" + sRec ).printMsg();
                 return ErrorAndLogMsg.GeneralErr(err, "Error invoking reserveRoom");
