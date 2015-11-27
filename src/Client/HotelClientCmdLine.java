@@ -133,7 +133,7 @@ public class HotelClientCmdLine {
 	
 	public static void main (String [] args) {
 		
-	    int[] newID = new int[1]; // last reservation ID
+	    int newID = (int)(System.currentTimeMillis());// last reservation ID.
 	    
 		if (args.length <2) {
 			System.out.println ("Need parameters: Host Port\n");
@@ -296,12 +296,14 @@ public class HotelClientCmdLine {
     				
     				if (m==null || !m.anyError()) {
     					//success
-    					System.out.println ("Reservation confirmed. ReservationID:" + newID[0] +
+    					System.out.println ("Reservation confirmed. ReservationID:" + newID +
     					        " Enjoy your Hotel!\n");
     					
     				} else {
     					m.printMsg();
     				}			
+    				
+    				newID++;
     				
     				break;
     			}
@@ -347,27 +349,27 @@ public class HotelClientCmdLine {
     			        System.out.print ("Input target Hotel:");
     			        String targetHotel = keyboard.nextLine();
     			        
-    			        int [] idHolder = new int[1];
-    			        idHolder [0] = id;
     			        
     			        if (targetHotel!=null && !targetHotel.isEmpty()) {
         			        m = client.transferRoom(
         			                r.guestID, 
-        			                idHolder, 
+        			                id, 
         			                r.shortName, 
         			                r.roomType, 
         			                r.checkInDate, 
         			                r.checkOutDate, 
-        			                targetHotel);
+        			                targetHotel,
+        			                newID);
         			        
         		             if (m==null || !m.anyError()) {
         		                    //success
         		                    System.out.println (
         		                            "Transferation success! New reservation ID:" +
-        		                            idHolder[0] + "\n");
+        		                            newID + "\n");
         		                } else {
         		                    m.printMsg();
-        		                }           
+        		                }     
+        		             newID++;
     			        }
     			    } else
     			        System.out.println ("Invalid ID:" + ln);
@@ -469,24 +471,29 @@ public class HotelClientCmdLine {
                            new SimpleDate (2015, 12, 10), 
                            newID);
                     
-                    if (m!=null) m.printMsg();
+                    if (m!=null) 
+                    	m.printMsg();
                     else
-                        System.out.println ("Success. ResID=" + newID[0]);
+                        System.out.println ("Success. ResID=" + newID);
+                    
+                    newID++;
+                    
                     break;
+
     			}
     			case 15: {
     			    // short cut for testing transfer
-    	                
+    	            // shall be right after launching case 14
 
-    			    m = client.transferRoom("123", newID, 
+    			    m = client.transferRoom("123", newID-1, 
     			            "Gordon", RoomType.SINGLE,
     			            new SimpleDate (2015, 12, 5), 
     			            new SimpleDate (2015, 12, 10), 
-                            "Star");
+                            "Star",newID);
                     if (m!=null) m.printMsg();
                     else
-                        System.out.println ("Success. ResID=" + newID[0]);
-                    
+                        System.out.println ("Success. ResID=" + newID);
+                    newID ++;
                     break;
     			}
 			}

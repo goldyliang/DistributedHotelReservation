@@ -125,11 +125,9 @@ public interface IHotelServer extends Remote {
 	
 	public HotelProfile getProfile () throws RemoteException;
 	
-	// Note: it is now not conformed with RMI interface to return long by parameter
-	// this only works for CORBA
 	public ErrorCode reserveRoom (
 			String guestID, RoomType roomType, 
-			SimpleDate checkInDate, SimpleDate checkOutDate, int[] resID) throws RemoteException;
+			SimpleDate checkInDate, SimpleDate checkOutDate, int resID) throws RemoteException;
 	
 	public ErrorCode cancelRoom (
 			String guestID, RoomType roomType, 
@@ -147,7 +145,7 @@ public interface IHotelServer extends Remote {
 	        RoomType roomType,
 	        SimpleDate checkInDate, SimpleDate checkOutDate,
 	        String targetHotel,
-	        int[] newResID);
+	        int newResID);
 	
 
 	

@@ -162,18 +162,16 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public ErrorCode reserveRoom (
             String guestID, RoomType roomType, 
-            SimpleDate checkInDate, SimpleDate checkOutDate, int[] resID) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate, int resID) throws RemoteException {
         
         Record newRec = new Record (
-                getNewReserveID(),
+        		resID,
                 guestID, 
                 prof.shortName, 
                 roomType, 
                 checkInDate, checkOutDate, 
                 prof.rates.get(roomType));
-        
-        resID[0] = newRec.resID;
-        
+                
         String logStr =  newRec.toOneLineString();
         logStr = logStr + getClientHostLog();
 
@@ -956,17 +954,15 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         // =======================================
         // Find the record to see if it is really there
         // the reservation ID in msgRequest is the old ID
-        // the new reservation ID is unknown, so find with guestID, date, room type, etc
+        // newResID is the new ID
+        // try to find the record with the newResID
         Record rec = resRecords.findRecord(
                 msgRequest.guestID, 
-                msgRequest.roomType,
-                msgRequest.inDate,
-                msgRequest.outDate);
+                msgRequest.newResID);
         
         // compose the reply message
         UDPMessage msgReply = (UDPMessage)msgRequest.clone();
         msgReply.returnCode = (rec!=null? 1 : 0 );
-        msgReply.newResID = (rec!=null? rec.resID : 0);
         
         int len = msgReply.encode(UDPMessage.MessageType.COMMIT_ACK, buf);
         
@@ -1238,7 +1234,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     public ErrorCode transferRoom(String guestID, int reservationID,
             RoomType roomType, SimpleDate checkInDate, SimpleDate checkOutDate,
             String targetHotel,
-            int[] newID) {
+            int newID) {
         
         byte[] buf = new byte[1000];
 
@@ -1408,6 +1404,8 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 
                 InetSocketAddress newAddr;
                 
+                msgReq.newResID = newID; // send the new ID
+                
                 // the first try is sent to the newPort
                 // however, if it is a re-try, send to general query port
                 if (retryCnt==0) {
@@ -1525,8 +1523,6 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             cnts.incrementDays(checkInDate, checkOutDate);
         }
         
-        // return the newID
-        newID[0] = replyMsg.newResID;//replyMsg.
         
         // finishing the transaction. close the socket
         socket.close();
@@ -1725,7 +1721,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 
                 // add a reservation record
                 Record newRec = new Record (
-                        getNewReserveID(),
+                		msgReqCommit.newResID, // use the new ID received from commit request
                         msgReq.guestID,
                         prof.shortName,
                         msgReq.roomType,

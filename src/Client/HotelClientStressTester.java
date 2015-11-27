@@ -31,6 +31,7 @@ public class HotelClientStressTester implements Runnable {
     HashMap <String, ArrayList<Record>> records;
     //ArrayList <Record> records;
     
+    int newID = (int)(System.currentTimeMillis());
    
     int minutes;
    
@@ -91,12 +92,12 @@ public class HotelClientStressTester implements Runnable {
         
         Record r = getRandomRecord();
         
-        int id[] = new int[1];
+        int id = newID++;
         
         ErrorAndLogMsg m = client.reserveHotel(
                 r.guestID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate, id);
         
-        r.resID = id[0];
+        r.resID = id;
         
         if (m==null || !m.anyError()) {
             ArrayList <Record> list = records.get(r.guestID);
@@ -206,22 +207,22 @@ public class HotelClientStressTester implements Runnable {
             toHotel = serverNames[i];
         } while (toHotel.equals(r.shortName));
         
-        int [] idHolder = new int[1];
-        idHolder[0] = r.resID;
         
         ErrorAndLogMsg m = client.transferRoom(
-                r.guestID, idHolder, r.shortName, r.roomType, r.checkInDate, r.checkOutDate,
-                toHotel);
+                r.guestID, r.resID, r.shortName, r.roomType, r.checkInDate, r.checkOutDate,
+                toHotel, newID);
         
         if (m==null || !m.anyError()) {
             //successful transferred
             //update the record with new ID and new Hotel
-            r.resID = idHolder[0];
+            r.resID = newID;
             r.shortName = toHotel;
         }
         else if (m.error!=ErrorCode.ROOM_UNAVAILABLE)
             // there is a problem
             m.printMsg();
+        
+        newID++;
         
     }
     

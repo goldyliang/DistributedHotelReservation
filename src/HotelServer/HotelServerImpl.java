@@ -50,18 +50,14 @@ public class HotelServerImpl extends CIHotelServerPOA {
 
     @Override
     public int reserveHotel(String guestID, CRoomType roomType,
-            CDate checkInDate, CDate checkOutDate, IntHolder reservationID) {
-        
-        int [] id = new int[1];
-        
+            CDate checkInDate, CDate checkOutDate, int reservationID) {
+                
         try {
             ErrorCode r = server.reserveRoom(guestID, Utilities.toRoomType(roomType), 
                     Utilities.toDate(checkInDate), 
                     Utilities.toDate(checkOutDate), 
-                    id);
-            
-            reservationID.value = id[0];
-            
+                    reservationID);
+                        
             return r.ordinal();
             
         } catch (Exception e) {
@@ -161,8 +157,7 @@ public class HotelServerImpl extends CIHotelServerPOA {
             String guestID, int reservationID,
             CRoomType roomType, CDate checkInDate, CDate checkOutDate,
             String targetHotel,
-            IntHolder newID) {
-        int [] id = new int[1];
+            int newID) {
         
         try {
             ErrorCode r = server.transferRoom(
@@ -172,10 +167,8 @@ public class HotelServerImpl extends CIHotelServerPOA {
                     Utilities.toDate(checkInDate), 
                     Utilities.toDate(checkOutDate), 
                     targetHotel,
-                    id);
-            
-            newID.value = id[0];
-            
+                    newID);
+                        
             return r.ordinal();
             
         } catch (Exception e) {

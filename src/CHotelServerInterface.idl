@@ -65,7 +65,7 @@ module CHotelServerInterface {
 			
 		CERROR_CODE reserveHotel (in string guestID, in CRoomType roomType, 
 						         in CDate checkInDate, in CDate checkOutDate, 
-							out CReserveID reservationID);
+							 in CReserveID reservationID);
 
 		CERROR_CODE cancelHotel (in string guestID, in CRoomType roomType, 
 						         in CDate checkInDate, in CDate checkOutDate);
@@ -81,7 +81,7 @@ module CHotelServerInterface {
 						in CRoomType roomType,
 						in CDate checkInDate, in CDate checkOutDate,
 		                                in string targetHotel,
-						out CReserveID newResID);
+						in CReserveID newResID);
 		                                
 		CERROR_CODE addQuerySockets (in CListSockets sockets);
 		

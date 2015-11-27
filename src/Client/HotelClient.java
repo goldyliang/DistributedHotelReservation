@@ -275,7 +275,7 @@ public class HotelClient {
             RoomType type,
             SimpleDate checkInDate,
             SimpleDate checkOutDate,
-            int[] newID) {
+            int newID) {
         
         HotelServerWrapper server_wrap = servers.get(hotelName);
         
@@ -306,22 +306,17 @@ public class HotelClient {
                     checkInDate, 
                     checkOutDate, 0);
             
-            
-            int [] idHolder = new int[1];
-            
+                        
             ErrorCode err = server.reserveRoom(
                     guestID, type, checkInDate, checkOutDate,
-                    idHolder);
+                    newID);
             
-            newRec.resID = idHolder[0];
+            newRec.resID = newID;
             
             String sRec = newRec.toOneLineString();
             
             if (err == ErrorCode.SUCCESS) {
                 ErrorAndLogMsg.LogMsg("Reserve success: " + sRec).printMsg();
-                
-                if (newID!=null)
-                    newID[0] = newRec.resID;
                 
                 return null;
             } else {
@@ -559,12 +554,13 @@ public class HotelClient {
     // return resID by filling resID[0]
     public ErrorAndLogMsg transferRoom (
             String guestID,
-            int[] resID,
+            int resID,
             String hotelName,
             RoomType type,
             SimpleDate checkInDate,
             SimpleDate checkOutDate,
-            String targetHotel) {
+            String targetHotel,
+            int newResID) {
         
         HotelServerWrapper server_wrap = servers.get(hotelName);
         
@@ -578,7 +574,7 @@ public class HotelClient {
         
         try {
             
-            Record newRec = new Record(0,
+            Record newRec = new Record(newResID,
                     guestID, targetHotel, type, 
                     checkInDate, 
                     checkOutDate, 0);
@@ -588,13 +584,11 @@ public class HotelClient {
             
             ErrorCode err = server.transferRoom(
                     guestID, 
-                    resID[0],
+                    resID,
                     type, checkInDate, checkOutDate,
                     targetHotel,
-                    idHolder);
+                    newResID);
             
-            newRec.resID = idHolder[0];
-            resID[0] = idHolder[0];
             
             String sRec = newRec.toOneLineString();
             

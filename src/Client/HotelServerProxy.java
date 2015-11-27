@@ -44,21 +44,17 @@ public class HotelServerProxy implements IHotelServer {
 
     @Override
     public ErrorCode reserveRoom(String guestID, RoomType roomType,
-            SimpleDate checkInDate, SimpleDate checkOutDate, int[] id) throws RemoteException {
-
-        IntHolder idHolder = new IntHolder();
+            SimpleDate checkInDate, SimpleDate checkOutDate, int id) throws RemoteException {
         
         int r = this.serverObj.reserveHotel(
                 guestID,
                 Utilities.toCRoomType (roomType),
                 Utilities.toCDate (checkInDate),
                 Utilities.toCDate (checkOutDate),
-                idHolder);
+                id);
         
         ErrorCode ret = ErrorCode.values()[r];
-        
-        id[0] = idHolder.value;
-        
+                
         return ret;
     }
 
@@ -130,10 +126,8 @@ public class HotelServerProxy implements IHotelServer {
     @Override
     public ErrorCode transferRoom(String guestID, int reservationID,
             RoomType roomType, SimpleDate checkInDate, SimpleDate checkOutDate,
-            String targetHotel, int[] newID) {
-        
-        IntHolder idHolderNew = new IntHolder();
-        
+            String targetHotel, int newID) {
+                
         int r = this.serverObj.transferReservation(
                 guestID,
                 reservationID,
@@ -141,12 +135,10 @@ public class HotelServerProxy implements IHotelServer {
                 Utilities.toCDate (checkInDate),
                 Utilities.toCDate (checkOutDate),
                 targetHotel,
-                idHolderNew);
+                newID);
         
         ErrorCode ret = ErrorCode.values()[r];
-        
-        newID[0] = idHolderNew.value;
-        
+                
         return ret;
 
     }
