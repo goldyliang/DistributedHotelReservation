@@ -12,7 +12,7 @@ public class SimpleDate {
     private int month;
     private int day;
     
-    private static String dfString = "yyyy/MM/dd";
+    private static String dfString = "yyyyMMdd";
     
     // a thread local DateFormat variable
     // because DateFormat is not thread-safe

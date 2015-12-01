@@ -1,7 +1,7 @@
 RegistryHost = localhost
 RegistryPort = 1050
 AdminName = HotelCentralAdmin
-BindName = Motel
+BindName = H2
 FullName = Cheap Motel
 Description = This is a cheap Motel.
 
@@ -15,7 +15,7 @@ Rate-FAMILY = 80
 ManagerID = manager
 ManagerPassword = pass
 
-QueryPort = 5002
+QueryPortOffset = 2
 
 LogFile = ServerLog-Motel.txt
 LogQueries = 0

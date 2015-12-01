@@ -492,6 +492,9 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         String mgrID, mgrPass, centralAdminName;
         
         String logFilePath = null;
+        
+        // If server replication ID provided, use it
+        int serverID = (args.length>1? Integer.valueOf(args[1]) : -1);
 
         try {
         
@@ -519,11 +522,17 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             prof.totalRooms = new EnumMap <RoomType, Integer> (RoomType.class);
             prof.rates = new EnumMap <RoomType, Float> (RoomType.class);
             
-            String sQueryPort = prop.getProperty("QueryPort");
-            if (sQueryPort==null || sQueryPort.isEmpty())
-                queryPort = DEFAULT_LISTEN_PORT;
+            int  queryPortOffset = Integer.parseInt(prop.getProperty("QueryPortOffset"));
+         
+            if (serverID <= 0)
+            	// in none replication mode
+            	queryPortBaseReal = QUERY_PORT_BASE;
             else
-                queryPort = Integer.parseInt(sQueryPort);
+            	queryPortBaseReal = QUERY_PORT_BASE + (serverID - 1) * 10;
+
+        	queryPort = queryPortBaseReal + queryPortOffset;
+
+            	// in replication mode
             
             prof.allTotalRooms = 0;
             
@@ -594,8 +603,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         // Now we can create the server object
         
-        // If server replication ID provided, set it
-        int serverID = (args.length>1? Integer.valueOf(args[1]) : -1);
+
         HotelServer server = new HotelServer(prof, queryPort, serverID);
         
         server.managerID = mgrID;
@@ -678,6 +686,14 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         return this.serverMgrRef;
     }
     
+    // If running in non-replication mode,
+    // The query port is QUERY_PORT_BASE ~ QUERY_PORT_BASE + 2
+    //
+    // If running in replication mode,
+    // The query port = queryPortBaseReplication ~ .. + 2
+    // queryPortBaseReplication = QUERY_PORT_BASE + (ServerID-1) * 10
+    private final static int QUERY_PORT_BASE = 5000;
+    private static int queryPortBaseReal = QUERY_PORT_BASE;
     
     private void loadServerAddPorts () {
 
@@ -706,9 +722,9 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         srvSocketAddresses = new TreeMap <String,InetSocketAddress> ();
         
-        srvSocketAddresses.put("Gordon", new InetSocketAddress("localhost", 5000));
-        srvSocketAddresses.put("Star", new InetSocketAddress("localhost", 5001));
-        srvSocketAddresses.put("Motel", new InetSocketAddress("localhost", 5002));
+        srvSocketAddresses.put("H1", new InetSocketAddress("localhost", queryPortBaseReal));
+        srvSocketAddresses.put("H2", new InetSocketAddress("localhost", queryPortBaseReal + 1));
+        srvSocketAddresses.put("H3", new InetSocketAddress("localhost", queryPortBaseReal + 2));
     }
     
     void startQueryListeningThread () {

@@ -1,7 +1,7 @@
 RegistryHost = localhost
 RegistryPort = 1050
 AdminName = HotelCentralAdmin
-BindName = Star
+BindName = H3
 FullName = Star Hotel
 Description = This is a 5 Star hotel.
 
@@ -15,7 +15,7 @@ Rate-FAMILY = 250
 ManagerID = manager
 ManagerPassword = pass
 
-QueryPort = 5001
+QueryPortOffset = 1
 
 LogFile = ServerLog-Star.txt
 LogQueries = 0
