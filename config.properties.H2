@@ -5,9 +5,9 @@ BindName = H2
 FullName = Cheap Motel
 Description = This is a cheap Motel.
 
-RoomCnt-SINGLE = 3
-RoomCnt-DOUBLE = 3
-RoomCnt-FAMILY = 3
+RoomCnt-SINGLE = 30
+RoomCnt-DOUBLE = 30
+RoomCnt-FAMILY = 30
 Rate-SINGLE = 40
 Rate-DOUBLE = 60
 Rate-FAMILY = 80
@@ -15,9 +15,9 @@ Rate-FAMILY = 80
 ManagerID = manager
 ManagerPassword = pass
 
-QueryPortOffset = 2
+QueryPortOffset = 1
 
-LogFile = ServerLog-Motel.txt
+LogFile = ServerLog-H2.txt
 LogQueries = 0
 
 

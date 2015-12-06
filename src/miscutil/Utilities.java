@@ -13,16 +13,25 @@ import HotelServerInterface.IHotelServer.RoomType;
 public class Utilities {
 
     public static CDate toCDate(SimpleDate dt) {
-        return new CDate( (short)dt.getYear(), 
+    	if (dt == null)
+    		return null;
+    	else
+    		return new CDate( (short)dt.getYear(), 
                 (short)dt.getMonth(), 
                 (short)dt.getDay());
     }
     
     public static SimpleDate toDate (CDate dtstru) {
-        return new SimpleDate (dtstru.year, dtstru.month, dtstru.day);
+    	if (dtstru == null)
+    		return null;
+    	else
+    		return new SimpleDate (dtstru.year, dtstru.month, dtstru.day);
     }
     
     public static HotelProfile toHotelProfile (CHotelProfile prof) {
+    	if (prof==null)
+    		return null;
+    	
         HotelProfile rProf = new HotelProfile();
         rProf.shortName = prof.shortName;
         rProf.fullName = prof.fullName;
@@ -44,6 +53,8 @@ public class Utilities {
     }
     
     public static CHotelProfile toCHotelProfile (HotelProfile prof) {
+    	if (prof == null)
+    		return null;
         
         CHotelProfile rProf = new CHotelProfile();
         
@@ -67,14 +78,22 @@ public class Utilities {
     }
     
     public static RoomType toRoomType (CRoomType type) {
-        return RoomType.values()[type.value()];
+    	if (type==null)
+    		return null;
+    	else
+    		return RoomType.values()[type.value()];
     }
     
     public static CRoomType toCRoomType (RoomType type) {
-        return CRoomType.from_int(type.ordinal());
+    	if (type==null)
+    		return null;
+    	else
+    		return CRoomType.from_int(type.ordinal());
     }
     
     public static CAvailability toCAvailability (Availability avail) {
+    	
+    	if (avail == null) return null;
         
         return new CAvailability(
                 avail.hotelName,
@@ -83,6 +102,8 @@ public class Utilities {
     }
     
     public static Availability toAvailability (CAvailability avail) {
+    	
+    	if (avail == null) return null;
         
         Availability r = new Availability();
         r.hotelName = avail.hotelName;

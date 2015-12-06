@@ -550,6 +550,9 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             mgrPass = prop.getProperty("ManagerPassword");
             
             logFilePath = prop.getProperty("LogFile");
+            if ( serverID > 0 )
+            	logFilePath = "REP-" + serverID + "-" + logFilePath;
+            
             logQueries = prop.getProperty("LogQueries").equals("1");
             
         } catch (IOException ex) {
@@ -725,6 +728,11 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         srvSocketAddresses.put("H1", new InetSocketAddress("localhost", queryPortBaseReal));
         srvSocketAddresses.put("H2", new InetSocketAddress("localhost", queryPortBaseReal + 1));
         srvSocketAddresses.put("H3", new InetSocketAddress("localhost", queryPortBaseReal + 2));
+        
+        System.out.println("Query ports:");
+        
+        for (InetSocketAddress addr : srvSocketAddresses.values())
+        	System.out.println(addr);
     }
     
     void startQueryListeningThread () {
@@ -1027,6 +1035,8 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
             
             listenSocket = new DatagramSocket (queryPort);
             
+            System.out.println ("Started local query socket at port " + queryPort);
+            
             
             while (true) {
                 DatagramPacket request = new DatagramPacket (buffer, buffer.length);
@@ -1272,18 +1282,28 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         // =======================================
         // Find the record first (and lock it) and validate
+        // TODO lock record
         Record rec = resRecords.findRecord(guestID, reservationID);
-        if (rec!=null &&
-            (!rec.checkInDate.equals(checkInDate) ||
-             !rec.checkOutDate.equals(checkOutDate) ||
-             rec.roomType != roomType) )
-             rec = null;
-            
         
         if (rec==null) {
             //TODO unlock record
             return ErrorCode.RECORD_NOT_FOUND;
-        }
+            
+        } 
+        /*else if ( (checkInDate!=null && !rec.checkInDate.equals(checkInDate)) ||
+        		    (checkOutDate!=null && !rec.checkOutDate.equals(checkOutDate)) ||
+        		    (roomType!=null && rec.roomType != roomType) )
+            //TODO unlock record
+        	return ErrorCode.RECORD_NOT_FOUND; */
+            
+        // Update checkInDate, checkOutDate or roomType
+        // This is just a temp solution, avoiding to change the CORBA interface
+        // (Because ideally these three parameters shall not be part of the arguments
+        //  in IDL interface)
+        roomType = rec.roomType;
+        checkInDate = rec.checkInDate;
+        checkOutDate= rec.checkOutDate;        
+        
         
         // ======================================
         // local resource ready...

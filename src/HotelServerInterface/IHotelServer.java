@@ -37,6 +37,11 @@ public interface IHotelServer extends Remote {
 		public String hotelName;
 		public int availCount;
 		public float rate;
+		
+		@Override
+		public String toString() {
+			return hotelName + " Count:" + availCount + "; Rate:" + rate;
+		}
 	}
 	
 	// Complete informatoin about a reservation
@@ -140,6 +145,8 @@ public interface IHotelServer extends Remote {
 	public Record[] getReserveRecords (
 			String guestID ) throws RemoteException;
 	
+	// If roomType, checkInDate, checkOutDate, is null, do not validate
+	// If yes, validate the fields
 	public ErrorCode transferRoom (
 	        String guestID, int reservationID,
 	        RoomType roomType,

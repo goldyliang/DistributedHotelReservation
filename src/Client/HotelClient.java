@@ -412,8 +412,10 @@ public class HotelClient {
             ErrorCode err = server.cancelRoom(guestID, type, checkInDate, checkOutDate);
             
             if (err == ErrorCode.SUCCESS) {
-                ErrorAndLogMsg.LogMsg("Cancel success: " + sRec).printMsg();
-                return null;
+            	ErrorAndLogMsg r = ErrorAndLogMsg.LogMsg("Cancel success: " + sRec);
+                r.printMsg();
+                
+                return r;
             } else {
                 ErrorAndLogMsg.LogMsg("Cancel failure " + err.toString() + ":" + sRec).printMsg();
                 return ErrorAndLogMsg.GeneralErr(err, "Error invoking cancelRoom");
@@ -518,8 +520,9 @@ public class HotelClient {
                     return ErrorAndLogMsg.GeneralErr(ErrorCode.MGR_LOGIN_FAILURE, 
                             "Manager login failure to Hotel:" + server.getProfile().shortName);
                 else {
-                    ErrorAndLogMsg.LogMsg("Retrieved manager object:" + "Hotel:" + hotel);
-                    return null;
+                    ErrorAndLogMsg m = ErrorAndLogMsg.LogMsg("Retrieved manager object:" + "Hotel:" + hotel);
+                    m.printMsg();
+                    return m;
                 }
             } catch (RemoteException e) {
                 return ErrorAndLogMsg.ExceptionErr(e, "Exception when getting manager object");
@@ -645,9 +648,10 @@ public class HotelClient {
             String sRec = newRec.toOneLineString();
             
             if (err == ErrorCode.SUCCESS) {
-                ErrorAndLogMsg.LogMsg("Transfer success, new record: " + sRec).printMsg();
+                ErrorAndLogMsg r = ErrorAndLogMsg.LogMsg("Transfer success, new record: " + sRec);
+                r.printMsg();
                 
-                return null;
+                return r;
             } else {
                 ErrorAndLogMsg.LogMsg("Reserve failure " + err.toString() + ":" + sRec ).printMsg();
                 return ErrorAndLogMsg.GeneralErr(err, "Error invoking transferRoom");
@@ -656,9 +660,9 @@ public class HotelClient {
         } catch (Exception e) {
             ErrorAndLogMsg m = ErrorAndLogMsg.ExceptionErr(e, "Remote Exception when invoking reserveRoom");
             m.printMsg();
+            return m;
         }
         
-        return null;
     }
     
 }
