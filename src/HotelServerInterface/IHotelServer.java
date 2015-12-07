@@ -8,6 +8,7 @@ import miscutil.SimpleDate;
 import java.util.EnumMap;
 import java.util.List;
 import HotelServerInterface.ErrorAndLogMsg.ErrorCode;
+import java.util.Collection;
 
 public interface IHotelServer extends Remote {
 	
@@ -153,8 +154,6 @@ public interface IHotelServer extends Remote {
 	        SimpleDate checkInDate, SimpleDate checkOutDate,
 	        String targetHotel,
 	        int newResID);
-	
-
 	
 	public IHotelServerManager getManagerObject (String guestID, String passWord) throws RemoteException;
 }

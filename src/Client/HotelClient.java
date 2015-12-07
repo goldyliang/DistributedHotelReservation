@@ -606,6 +606,45 @@ public class HotelClient {
         return null;
     } 
     
+    // Note: not thread safe... 
+    public ErrorAndLogMsg getRecordSnapshot (Collection <Record> records) {
+    	
+    	records.clear();
+    	
+        for (HotelServerWrapper server_wrapper : servers.values()) {
+        	
+            IHotelServer server = server_wrapper.server;
+            
+    		// Temporary solution by hard-coding user name and password
+            System.out.println ("Try to login: " + server_wrapper.prof.shortName );
+    		ErrorAndLogMsg m = loginAsManager(server_wrapper.prof.shortName, "manager", "pass");
+    		
+    		if (m!=null && m.anyError()) {
+    			m.printMsg();
+    			return m;
+    		} 
+    		
+            IHotelServerManager mgr = server_wrapper.serverMgr;
+            
+            if (mgr==null) 
+                ErrorAndLogMsg.GeneralErr(ErrorCode.MGR_LOGIN_FAILURE, 
+                        "Hotel " + server_wrapper.prof.shortName + " not yet logged in as manager. Login first.").printMsg();
+            else {
+            	
+	            try {
+	                Collection <Record> recs = mgr.getReserveRecordSnapshot();
+	                if (recs!=null)
+	                    records.addAll( recs);
+	            } catch (Exception e) {
+	                return ErrorAndLogMsg.ExceptionErr(e, 
+	                        "Exception when getting service records");
+	            }
+            }
+        }
+
+        return null;
+    } 
+    
     // return resID by filling resID[0]
     public ErrorAndLogMsg transferRoom (
             String guestID,
@@ -664,5 +703,7 @@ public class HotelClient {
         }
         
     }
+    
+    
     
 }
