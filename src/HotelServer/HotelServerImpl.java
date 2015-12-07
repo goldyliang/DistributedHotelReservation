@@ -1,6 +1,7 @@
 package HotelServer;
 
 import java.rmi.RemoteException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
@@ -20,12 +21,14 @@ import CHotelServerInterface.CIHotelServerManagerHolder;
 import CHotelServerInterface.CIHotelServerPOA;
 import CHotelServerInterface.CINetSocketAddress;
 import CHotelServerInterface.CListAvailabilityHolder;
+import CHotelServerInterface.CListRecordHolder;
 import CHotelServerInterface.CRoomType;
 import HotelServerInterface.ErrorAndLogMsg;
 import HotelServerInterface.IHotelServer;
 import HotelServerInterface.ErrorAndLogMsg.ErrorCode;
 import HotelServerInterface.IHotelServer.Availability;
 import HotelServerInterface.IHotelServer.HotelProfile;
+import HotelServerInterface.IHotelServer.Record;
 import HotelServerInterface.IHotelServerManager;
 
 public class HotelServerImpl extends CIHotelServerPOA {
@@ -191,6 +194,5 @@ public class HotelServerImpl extends CIHotelServerPOA {
         return 0;
     }
 
- 
 
 }

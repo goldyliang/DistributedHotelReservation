@@ -2,6 +2,8 @@ package HotelServer;
 
 import miscutil.Utilities;
 
+import java.util.Collection;
+
 import org.omg.CORBA.Context;
 import org.omg.CORBA.ContextList;
 import org.omg.CORBA.DomainManager;
@@ -98,5 +100,26 @@ public class HotelServerManagerImpl extends CIHotelServerManagerPOA {
         }
     }
 
+	@Override
+	public int getRecordsSnapshot(CListRecordHolder records) {
+		
+		Collection <Record> colRec = server.getReserveRecordSnapshot();
+		
+		records.value = new CRecord[colRec.size()];
+		
+		int i = 0;
+		for (Record r : colRec) {
+			records.value[i++] = new CRecord (
+                    r.resID,
+                    r.guestID,
+                    r.shortName,
+                    Utilities.toCRoomType(r.roomType),
+                    Utilities.toCDate(r.checkInDate),
+                    Utilities.toCDate(r.checkOutDate),
+                    r.rate);
+		}
+		
+		return ErrorCode.SUCCESS.ordinal();
+	} 
 
 }

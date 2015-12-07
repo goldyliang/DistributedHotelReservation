@@ -14,6 +14,8 @@ import miscutil.SimpleDate;
 import HotelServerInterface.IHotelServer.Record;
 import HotelServerInterface.IHotelServer.RoomType;
 
+import java.util.Enumeration;
+import java.util.Collection;
 
 /*
  * Store reserver records for one hotel for all types of rooms
@@ -288,5 +290,21 @@ public class ReserveRecords {
     public String toString() {
         
         return mapRecords.toString();
+    }
+    
+    public Collection<Record> getSnapshot () {
+    	
+    	Collection <Record> ret = new ArrayList <Record> ();
+    	
+    	Enumeration < List<Record> > snapshot = this.mapRecords.elements();
+    	
+    	while (snapshot.hasMoreElements()) {
+    		List <Record> listRec = snapshot.nextElement();
+    		
+    		ret.addAll (listRec);
+    	}
+    	
+    	return ret;
+    	
     }
 }
