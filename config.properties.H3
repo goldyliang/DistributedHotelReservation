@@ -5,9 +5,9 @@ BindName = H3
 FullName = Star Hotel
 Description = This is a 5 Star hotel.
 
-RoomCnt-SINGLE = 30
-RoomCnt-DOUBLE = 30
-RoomCnt-FAMILY = 30
+RoomCnt-SINGLE = 5
+RoomCnt-DOUBLE = 4
+RoomCnt-FAMILY = 3
 Rate-SINGLE = 120
 Rate-DOUBLE = 150
 Rate-FAMILY = 250

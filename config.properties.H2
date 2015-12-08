@@ -5,9 +5,9 @@ BindName = H2
 FullName = Cheap Motel
 Description = This is a cheap Motel.
 
-RoomCnt-SINGLE = 30
-RoomCnt-DOUBLE = 30
-RoomCnt-FAMILY = 30
+RoomCnt-SINGLE = 5
+RoomCnt-DOUBLE = 4
+RoomCnt-FAMILY = 3
 Rate-SINGLE = 40
 Rate-DOUBLE = 60
 Rate-FAMILY = 80
