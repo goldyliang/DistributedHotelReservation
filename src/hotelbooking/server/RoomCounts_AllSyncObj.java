@@ -26,7 +26,7 @@ import hotelbooking.miscutil.SimpleDate;
  * 
  * @author Guopeng Liang, Concordia University, Montreal, Canada
  */
-public class AvailableRoomCounts implements RoomCounts {
+public class RoomCounts_AllSyncObj implements RoomCounts {
 
     // Total number of available rooms before any booking
     private final int totalRooms;
@@ -63,7 +63,7 @@ public class AvailableRoomCounts implements RoomCounts {
      * @param days  Number of days for the initial allocated counters (or, initiate size)
      * @throws RuntimeException if invalid arguments (totalRooms<=0, or days <=0)
      */
-    public AvailableRoomCounts (int totalRooms, SimpleDate startDate, int days) {
+    public RoomCounts_AllSyncObj (int totalRooms, SimpleDate startDate, int days) {
     	
     	if (totalRooms <= 0) throw new RuntimeException ("Invalid totalRooms:" + totalRooms);
     	if (days <= 0) throw new RuntimeException ("Invalid days:" + days);
