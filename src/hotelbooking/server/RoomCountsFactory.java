@@ -13,8 +13,13 @@ public abstract class RoomCountsFactory {
 			int totalRooms, SimpleDate startDate, int days) {
 		
 		switch (feature) {
+		
+		case RWLock_SyncObj:
+			return new RoomCounts_RWLock_SyncObjs (totalRooms, startDate, days);
+
 		case AllSyncObj:
 			return new RoomCounts_AllSyncObj (totalRooms, startDate, days);
+			
 		default:
 			return null;
 		}
