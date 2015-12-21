@@ -1,4 +1,4 @@
-package hotelbooking.server;
+package hotelbooking.server.roomcounts;
 
 import hotelbooking.miscutil.SimpleDate;
 

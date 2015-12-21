@@ -5,8 +5,8 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 import hotelbooking.miscutil.SimpleDate;
-import hotelbooking.server.RoomCounts;
-import hotelbooking.server.RoomCountsFactory;
+import hotelbooking.server.roomcounts.RoomCounts;
+import hotelbooking.server.roomcounts.RoomCountsFactory;
 
 public class Test_AvailableRoomCounts_SingleThread {
 		

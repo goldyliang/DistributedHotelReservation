@@ -42,6 +42,8 @@ import hotelbooking.CorbaInterface.CIHotelServerManager;
 import hotelbooking.CorbaInterface.CIHotelServerManagerHelper;
 import hotelbooking.miscutil.SimpleDate;
 import hotelbooking.server.ReserveRecords.IRecordOperation;
+import hotelbooking.server.roomcounts.RoomCounts;
+import hotelbooking.server.roomcounts.RoomCountsFactory;
 import hotelbooking.serverinterface.ErrorAndLogMsg;
 import hotelbooking.serverinterface.IHotelCentralAdmin;
 import hotelbooking.serverinterface.IHotelServer;
