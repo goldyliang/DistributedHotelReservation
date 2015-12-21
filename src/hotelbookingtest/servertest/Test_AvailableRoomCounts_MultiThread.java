@@ -357,16 +357,16 @@ public class Test_AvailableRoomCounts_MultiThread {
 	 */
 	@Test public void multiThreadTest_AvailableRoomCounts_Random () {
 		
-		final int initial_days = 3;
+		final int initial_days = 60;
 		SimpleDate startDate = new SimpleDate();
 		
         final int num_threads=4;
 
-		final int num_oprs = 100000;
+		final int num_oprs = 50000;
 		int focus_days_start = 0;
 		int focus_days_end = 35; 
 		final int inc_possibility_factor = 15; // 15%
-		final int delete_possibility_factor = inc_possibility_factor + 1; // 1%
+		final int delete_possibility_factor = inc_possibility_factor;// + 1; // 1%
 
 		final AvailableRoomCounts cnt = new AvailableRoomCounts(5, startDate, initial_days);
 		
