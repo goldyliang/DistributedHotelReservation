@@ -1,6 +1,8 @@
 package hotelbooking.server;
 
 import java.util.ArrayList;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import hotelbooking.miscutil.SimpleDate;
 
@@ -26,7 +28,7 @@ import hotelbooking.miscutil.SimpleDate;
  * 
  * @author Guopeng Liang, Concordia University, Montreal, Canada
  */
-public class AvailableRoomCounts {
+public class AvailableRoomCounts implements RoomCounts {
 
     // Total number of available rooms before any booking
     private final int totalRooms;
@@ -51,6 +53,32 @@ public class AvailableRoomCounts {
     // For the dates beyond the end of the list, there is no 
     // booking yet (ie. counter value = totalRooms)
     private final ArrayList <Counter> availCounts;
+    
+    // Read write lock to sync the operation between
+    //    > read/increase/decrease/modify of a counter, and 
+    //    > Operation of deleting expired days at the beginning, or adding new days at the end 
+    private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+    private final Lock rLock = rwLock.readLock();
+    private final Lock wLock = rwLock.writeLock();
+    
+    // Synchronize the access to each counter values
+    // To avoid too many synchronize objects, the counters are partitioned
+    // to NUM_SYNC_OBJS parts, and each part has one lock.
+    // For each counter of availCounts.get(i), the update
+    // is synchronized by the object of syncObj[i % NUM_SYNC_OBJS]
+    // To achieve optimistic concurrency, set NUM_SYNC_OBJS
+    // to number of available computing units (cores)
+    private final int NUM_SYNC_OBJS;
+    private final Object[] syncObj;
+    
+    {        
+    	NUM_SYNC_OBJS = 512;//Runtime.getRuntime().availableProcessors();
+    	
+    	syncObj = new Object[NUM_SYNC_OBJS];
+    	
+        for (int i=0;i<NUM_SYNC_OBJS;i++)
+            syncObj[i] = new Object();
+    }
     
     /**
      * Construct with the parameter of available room count,
@@ -99,17 +127,23 @@ public class AvailableRoomCounts {
      * @return The available room count.
      * @throws IndexOutOfBoundsException if the query date is before current system date
      */
-    synchronized public int queryCount (SimpleDate date) {
+    public int queryCount (SimpleDate date) {
     	
-        // Index of the counter = date difference between startDate and the specified date
-        int i = SimpleDate.dateDiff (this.startDate, date);
-        
-        if (i >= availCounts.size()) {
-        	// Out of range, just return the totalRoom
-        	return totalRooms;
+    	// Lock for reading towards the counter list
+        rLock.lock();
+        try {
+            // Index of the counter = date difference between startDate and the specified date
+            int i = SimpleDate.dateDiff (this.startDate, date);
+            
+            if (i >= availCounts.size()) {
+            	// Out of range, just return the totalRoom
+            	return totalRooms;
+            }
+            
+            return availCounts.get(i).count;
+        } finally {
+        	rLock.unlock();
         }
-        
-        return availCounts.get(i).count;
     }
     
     /**
@@ -129,42 +163,50 @@ public class AvailableRoomCounts {
      * @return available room count (minimum count of the range)
      * @throws RuntimeException if inDate/outDate is in the history, or outDate<=inDate
      */
-    synchronized public int queryCount (SimpleDate inDate, SimpleDate outDate) {
+    public int queryCount (SimpleDate inDate, SimpleDate outDate) {
     	
         int days = SimpleDate.dateDiff (inDate, outDate);
         if (days <=0) throw new RuntimeException("Query outDate <= inDate");
 
-        int idx = SimpleDate.dateDiff (startDate, inDate);
-        
-        if (idx<0) throw new RuntimeException ("Query inDate < startDate");
-                
-        int endIdx = idx+days-1;
-        
-        int len = availCounts.size();
-        
-        if (idx >= len) {
-        	// inDate beyond range, just return totalRooms
-        	return totalRooms;
+        // Now we start to access the values of elements,
+        // but not the structure of the list, apply the Read lock
+        rLock.lock();
+        try {
+            int idx = SimpleDate.dateDiff (startDate, inDate);
+            
+            if (idx<0) throw new RuntimeException ("Query inDate < startDate");
+                    
+            int endIdx = idx+days-1;
+            
+            int len = availCounts.size();
+            
+            if (idx >= len) {
+            	// inDate beyond range, just return totalRooms
+            	return totalRooms;
+            }
+            
+            if (endIdx >= len) {
+                // Do not need to go beyond last day, as the counter would be maximum
+            	endIdx = len-1;
+            }
+            
+            int cnt = 0;
+            
+	        int i = idx;
+	        
+	        cnt = totalRooms;
+	        
+	        while (i <= endIdx) {
+	            int n = availCounts.get(i++).count;
+	            if (n < cnt)
+	                cnt = n;
+	        }
+	        
+	        return cnt;
+
+        } finally {
+        	rLock.unlock();
         }
-        
-        if (endIdx >= len) {
-            // Do not need to go beyond last day, as the counter would be maximum
-        	endIdx = len-1;
-        }
-        
-        int cnt = 0;
-        
-        int i = idx;
-        
-        cnt = totalRooms;
-        
-        while (i <= endIdx) {
-            int n = availCounts.get(i++).count;
-            if (n < cnt)
-                cnt = n;
-        }
-        
-        return cnt;
 
     }
     
@@ -181,9 +223,12 @@ public class AvailableRoomCounts {
     	// So getting the counter object is safe
         Counter n = availCounts.get(idx);
         
-        if (n.count > 0) {
-            n.count --;
-            r = true;
+        synchronized (syncObj [idx % NUM_SYNC_OBJS]) 
+        {
+            if (n.count > 0) {
+                n.count --;
+                r = true;
+            }
         }
         
         return r;
@@ -201,10 +246,13 @@ public class AvailableRoomCounts {
     	// Assumed that the rLock is already granted for the whole list
     	// So getting the counter object is safe
         Counter n = availCounts.get(idx);
-       
-        if (n.count < totalRooms) {
-            n.count ++;
-            r = true;
+        
+        synchronized (syncObj [idx % NUM_SYNC_OBJS]) 
+        {
+            if (n.count < totalRooms) {
+                n.count ++;
+                r = true;
+            }
         }
         return r;
     }
@@ -245,7 +293,7 @@ public class AvailableRoomCounts {
      *         {@code false} if any of the original counts is already zero. Or part of the range < startDate
      * @throws RuntimeException if the date range is not valid (outDate <= inDate)
      */
-    synchronized public boolean decreaseDayRange (SimpleDate inDate, SimpleDate outDate) {
+    public boolean decreaseDayRange (SimpleDate inDate, SimpleDate outDate) {
     	
         int days = SimpleDate.dateDiff (inDate, outDate);
         if (days <=0) throw new RuntimeException("Query outDate <= inDate");
@@ -255,39 +303,54 @@ public class AvailableRoomCounts {
         int idx = 0;
         int endIdx = 0;
         
-        idx = SimpleDate.dateDiff (startDate, inDate);
-        
-        if (idx<0) return false;
-        
-        endIdx = idx+days-1;
-        
-        int len = availCounts.size();
-        
-        if (endIdx >= len) {
-        	// Resize to at
-            increaseSize (endIdx + 1);
-        }
-        
-        int i = idx;
-
-        while (i <= endIdx) {
-        	
-        	// increaseCount/decreaseCount is performed synchronized to
-        	// other modification towards the same counter.
-            if (!decreaseCount (i)) {
-                success = false;
-                break;
-            } else i++;
-        }
-        
-        if (!success) {
-            // revert back the counts that decreased
-            while (i>idx) {
-                i--;
-                increaseCount (i);
+        // Now we start to access and possibly resize the list of counters
+        // Apply wLock first
+        wLock.lock();
+        try {
+            idx = SimpleDate.dateDiff (startDate, inDate);
+            
+            if (idx<0) return false;
+            
+            endIdx = idx+days-1;
+            
+            int len = availCounts.size();
+            
+            if (endIdx >= len) {
+            	// Resize to at
+                increaseSize (endIdx + 1);
             }
+            
+            // From now on, only read operation to the list of counters
+            rLock.lock();
+        } finally {
+        	wLock.unlock();
         }
+        
+        // Now rLock shall have been locked
+        try {
+            int i = idx;
 
+	        while (i <= endIdx) {
+	        	
+	        	// increaseCount/decreaseCount is performed synchronized to
+	        	// other modification towards the same counter.
+	            if (!decreaseCount (i)) {
+	                success = false;
+	                break;
+	            } else i++;
+	        }
+	        
+	        if (!success) {
+	            // revert back the counts that decreased
+	            while (i>idx) {
+	                i--;
+	                increaseCount (i);
+	            }
+	        }
+        } finally {
+        	rLock.unlock();
+        }
+        
         return success;
     }
     
@@ -308,45 +371,54 @@ public class AvailableRoomCounts {
      *         Or part of the range < startDate
      * @throws RuntimeException if the date range is not valid (outDate <= inDate)
      */
-    synchronized public boolean increaseDayRange (SimpleDate inDate, SimpleDate outDate){
+    public boolean increaseDayRange (SimpleDate inDate, SimpleDate outDate){
 
         int days = SimpleDate.dateDiff (inDate, outDate);
 
         if (days <=0) throw new RuntimeException("Increase outDate" + outDate +" <= inDate " + inDate);
 
-        int idx = SimpleDate.dateDiff (startDate, inDate);
-        
-        if (idx<0) return false;
-        
-        int endIdx = idx+days-1;
-        
-        boolean success = true;
-        
-        int len = availCounts.size();
-        
-        if (endIdx >= len) {
-            // This simply will fail, return false
-            return false;
-        }
-        
-        int i = idx;
-        while (i <= endIdx) {
-            if (!increaseCount (i)) {
-                success = false;
-                break;
-            } else i++;
-        }
-        
-        if (!success) {
-            // Revert back the counts that increased
-            while (i>idx) {
-                i--;
-                decreaseCount (i);
+        // Now we start to access and change the values of elements,
+        // but not the structure of the list, apply the Read lock
+        rLock.lock();
+        try {
+        	
+            int idx = SimpleDate.dateDiff (startDate, inDate);
+            
+            if (idx<0) return false;
+            
+            int endIdx = idx+days-1;
+            
+            boolean success = true;
+            
+            int len = availCounts.size();
+            
+            if (endIdx >= len) {
+                // This simply will fail, return false
+                return false;
             }
+            
+            int i = idx;
+            while (i <= endIdx) {
+                if (!increaseCount (i)) {
+                    success = false;
+                    break;
+                } else i++;
+            }
+            
+            if (!success) {
+                // Revert back the counts that increased
+                while (i>idx) {
+                    i--;
+                    decreaseCount (i);
+                }
+            }
+            
+            return success;
+
+        } finally {
+        	rLock.unlock();
         }
         
-        return success;
-
     }
     
 
@@ -358,10 +430,15 @@ public class AvailableRoomCounts {
      * 
      * @return the start date of the allocated counters
      */
-    synchronized public SimpleDate getStartDate () {
-  
-    	return startDate.clone();
-
+    public SimpleDate getStartDate () {
+    	
+    	// apply rLock to synchronize with structure change
+    	rLock.lock();
+    	try {
+    		return startDate.clone();
+    	} finally {
+    		rLock.unlock();
+    	}
     }
     
     /**
@@ -372,13 +449,19 @@ public class AvailableRoomCounts {
      * 
      * @return the last date on which a counter is allocated
      */
-    synchronized public SimpleDate getLastAllocatedDate () {
+    public SimpleDate getLastAllocatedDate () {
         
-        int len = availCounts.size();
-        
-        SimpleDate end = new SimpleDate (startDate);
-        end.forwardDay(len-1);
-        return end;
+    	// apply rLock to synchronize with structure change
+    	rLock.lock();
+    	try {
+	        int len = availCounts.size();
+	        
+	        SimpleDate end = new SimpleDate (startDate);
+	        end.forwardDay(len-1);
+	        return end;
+    	} finally {
+    		rLock.unlock();
+    	}
     }
 
     /**
@@ -391,28 +474,40 @@ public class AvailableRoomCounts {
      * @return <@code true> if delete succeeds, or the date is after current start date
      */
     public boolean deleteCountersTillDate (SimpleDate date) {
-    	        
-        int cnt = SimpleDate.dateDiff (startDate, date);
-        
-        if (cnt < 0) return false;
-        
-        if (cnt == 0) return true; // nothing to do
-                
-        
-    	// loop cnt times, and delete the first counter
-    	for (int i=0; i< cnt; i++) {
-    		if (availCounts.size() > 0)
-    			availCounts.remove(0);
-    		else {
-    			// everything cleared, can not delete more
-    			break; 
-    		}
-    	}
     	
-    	// Update startDate now, by forwarding cnt days
-    	startDate.forwardDay( cnt );
-    	
-        return true;
+        boolean success = false;
+        
+        if (date.getYear()==2015 && date.getMonth()==12 && date.getDay()==30)
+        	success = false;
+
+        // Apply write lock first
+        wLock.lock();
+        try {
+            int cnt = SimpleDate.dateDiff (startDate, date);
+            
+            if (cnt < 0) return false;
+            
+            if (cnt == 0) return true; // nothing to do
+                    
+            
+        	// loop cnt times, and delete the first counter
+        	for (int i=0; i< cnt; i++) {
+        		if (availCounts.size() > 0)
+        			availCounts.remove(0);
+        		else {
+        			// everything cleared, can not delete more
+        			break; 
+        		}
+        	}
+        	
+        	// Update startDate now, by forwarding cnt days
+        	startDate.forwardDay( cnt );
+        	success = true;
+        } finally {
+        	wLock.unlock();
+        }
+        
+        return success;
     }
     
 }

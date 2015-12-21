@@ -5,12 +5,13 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 import hotelbooking.miscutil.SimpleDate;
-import hotelbooking.server.AvailableRoomCounts;
+import hotelbooking.server.RoomCounts;
+import hotelbooking.server.RoomCountsFactory;
 
 public class Test_AvailableRoomCounts_SingleThread {
 		
-	static AvailableRoomCounts createNewCntAndVerify (int rooms, SimpleDate startDate, int size) {
-		AvailableRoomCounts roomCnt = new AvailableRoomCounts (rooms, startDate, size);
+	static RoomCounts createNewCntAndVerify (int rooms, SimpleDate startDate, int size) {
+		RoomCounts roomCnt = RoomCountsFactory.getRoomCounts(rooms, startDate, size);
 		
 		// Verify initial status
 		Tester tester = new Tester (roomCnt);
@@ -21,10 +22,10 @@ public class Test_AvailableRoomCounts_SingleThread {
 	}
 	
 	static class Tester {
-		AvailableRoomCounts roomCnt;
+		RoomCounts roomCnt;
 		SimpleDate startDate;
 		
-		public Tester (AvailableRoomCounts cnt) {
+		public Tester (RoomCounts cnt) {
 			this.roomCnt = cnt;
 			startDate = roomCnt.getStartDate();
 		}
@@ -32,7 +33,7 @@ public class Test_AvailableRoomCounts_SingleThread {
 		static void testIllegalConstructor (int rooms, SimpleDate date, int size) {
 			// Illegal parameters, throws Exception
 			try {
-				new AvailableRoomCounts (rooms, date, size);
+				RoomCountsFactory.getRoomCounts(rooms, date, size);
 				fail ("Exception not throwed");
 			} catch (RuntimeException e) {
 				
@@ -167,7 +168,7 @@ public class Test_AvailableRoomCounts_SingleThread {
 		
 		SimpleDate startDate = new SimpleDate();
 		
-		AvailableRoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
+		RoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
 
 		Tester tester = new Tester (roomCnt);
 		
@@ -222,7 +223,7 @@ public class Test_AvailableRoomCounts_SingleThread {
 		
 		SimpleDate startDate = new SimpleDate();
 		
-		AvailableRoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
+		RoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
 
 		Tester tester = new Tester (roomCnt);
 		
@@ -316,7 +317,7 @@ public class Test_AvailableRoomCounts_SingleThread {
 		
 		SimpleDate startDate = new SimpleDate();
 		
-		AvailableRoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
+		RoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
 
 		Tester tester = new Tester (roomCnt);
 		
@@ -415,7 +416,7 @@ public class Test_AvailableRoomCounts_SingleThread {
 		SimpleDate startDate = new SimpleDate();
 		SimpleDate startDateCloned = startDate.clone();
 		
-		AvailableRoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
+		RoomCounts roomCnt = createNewCntAndVerify(5, startDate, 30);
 
 		Tester tester = new Tester (roomCnt);
 		

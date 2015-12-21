@@ -57,7 +57,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     static boolean logQueries = false;
     
     // Count of available rooms per room type, across the days
-    private EnumMap <RoomType, AvailableRoomCounts> roomCounts;
+    private EnumMap <RoomType, RoomCounts> roomCounts;
     
     // Reservation records for different guests and all room types
     ReserveRecords resRecords;
@@ -120,10 +120,11 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         else
         	replicaSurfix = "";
         
-        roomCounts = new EnumMap <RoomType, AvailableRoomCounts> (RoomType.class);
+        roomCounts = new EnumMap <RoomType, RoomCounts> (RoomType.class);
         for (RoomType t:RoomType.values()) {
             roomCounts.put(t, 
-                    new AvailableRoomCounts ( prof.totalRooms.get(t), new SimpleDate(), 30 ) );
+            		RoomCountsFactory.getRoomCounts(
+            				prof.totalRooms.get(t), new SimpleDate(), 30 ) );
         }
         
         resRecords = new ReserveRecords();
@@ -186,7 +187,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         logStr = logStr + getClientHostLog();
 
         
-        AvailableRoomCounts counts = roomCounts.get(roomType);
+        RoomCounts counts = roomCounts.get(roomType);
         
         //First do "pre-server" operation by checking and decreasing the available room counters
         boolean r = counts.decreaseDayRange(checkInDate, checkOutDate);
@@ -230,7 +231,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
 
 
         
-        AvailableRoomCounts counts = roomCounts.get(roomType);
+        RoomCounts counts = roomCounts.get(roomType);
         Record cancelRec = new Record (
                 0, // do not provide, just match the dates
                 guestID, 
@@ -439,7 +440,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         for (RoomType typ: RoomType.values()) {
             System.out.println ("\n\nCounters for type:" + typ.toString());
             
-            AvailableRoomCounts ct = roomCounts.get(typ);
+            RoomCounts ct = roomCounts.get(typ);
             
             SimpleDate dt= new SimpleDate(); //today
             
@@ -1567,7 +1568,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         
         // increase the room counters to release the rooms
         
-        AvailableRoomCounts cnts = this.roomCounts.get(roomType);
+        RoomCounts cnts = this.roomCounts.get(roomType);
         // shall not be null
         
         if (cnts!=null) {
@@ -1613,7 +1614,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         int returnCode = 1; //1 for OK, other for NOT OK
         if (valid) {
             // check availability counts
-            AvailableRoomCounts cnts = this.roomCounts.get(msgReq.roomType);
+            RoomCounts cnts = this.roomCounts.get(msgReq.roomType);
             if (cnts==null) {
                 returnCode = 0;
             }
@@ -1681,7 +1682,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
 
             if (returnCode ==1) {
                 // need to roll back only if there is availble room and decreased the count
-                AvailableRoomCounts cnts = this.roomCounts.get(msgReq.roomType);
+                RoomCounts cnts = this.roomCounts.get(msgReq.roomType);
                 if (cnts!=null)
                     // release the rooms
                     cnts.increaseDayRange(msgReq.inDate, msgReq.outDate);
@@ -1757,7 +1758,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                     // any error when receiving
                     // need to roll back
                     // we have access to the object here
-                    AvailableRoomCounts cnts; // the reference to the server object
+                    RoomCounts cnts; // the reference to the server object
                     cnts = roomCounts.get(msgReq.roomType);
                     if (cnts!=null)
                         cnts.increaseDayRange(msgReq.inDate, msgReq.outDate);
@@ -1814,7 +1815,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
                 // if record delete error, or ack send failure, or any other error, roll back
                 if (result!=ErrorCode.SUCCESS) {
                     resRecords.cancelReservation(msgReq.guestID, newRec, 0);
-                    AvailableRoomCounts cnts; // the reference to the server object
+                    RoomCounts cnts; // the reference to the server object
                     cnts = roomCounts.get(msgReq.roomType);
                     if (cnts!=null)
                         cnts.increaseDayRange(msgReq.inDate, msgReq.outDate);
@@ -1885,7 +1886,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         // compare the counters with the one in roomCounts
         for (RoomType typ: RoomType.values()) {
             ArrayList<int[]> list_gen = counts.get(typ);
-            AvailableRoomCounts cnts = roomCounts.get(typ);
+            RoomCounts cnts = roomCounts.get(typ);
             
             SimpleDate dt = cnts.getStartDate();
             

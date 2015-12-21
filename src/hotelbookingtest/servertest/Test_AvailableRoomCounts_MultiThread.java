@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -16,7 +15,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 
 import hotelbooking.miscutil.SimpleDate;
-import hotelbooking.server.AvailableRoomCounts;
+import hotelbooking.server.RoomCounts;
+import hotelbooking.server.RoomCountsFactory;
 
 public class Test_AvailableRoomCounts_MultiThread {
 	SimpleDate startDate = new SimpleDate();
@@ -149,7 +149,7 @@ public class Test_AvailableRoomCounts_MultiThread {
 	
 	static class MultiThreadTester {
 		
-		final AvailableRoomCounts roomCnt;
+		final RoomCounts roomCnt;
 		
 		class BookingThread extends Thread {
 			List <Operation> operations;
@@ -237,7 +237,7 @@ public class Test_AvailableRoomCounts_MultiThread {
 		
 
 		
-		MultiThreadTester ( AvailableRoomCounts cnt, List < List <Operation>> operationsPerThread) {
+		MultiThreadTester ( RoomCounts cnt, List < List <Operation>> operationsPerThread) {
 			this.roomCnt = cnt;
 			this.operationsPerThread = operationsPerThread;
 			numThreads = operationsPerThread.size();
@@ -357,18 +357,19 @@ public class Test_AvailableRoomCounts_MultiThread {
 	 */
 	@Test public void multiThreadTest_AvailableRoomCounts_Random () {
 		
-		final int initial_days = 60;
+		final int initial_days = 3;
 		SimpleDate startDate = new SimpleDate();
 		
         final int num_threads=4;
 
-		final int num_oprs = 50000;
+		final int num_oprs = 100000;
 		int focus_days_start = 0;
 		int focus_days_end = 35; 
 		final int inc_possibility_factor = 15; // 15%
-		final int delete_possibility_factor = inc_possibility_factor;// + 1; // 1%
+		final int delete_possibility_factor = inc_possibility_factor + 1; // 1%
 
-		final AvailableRoomCounts cnt = new AvailableRoomCounts(5, startDate, initial_days);
+		final RoomCounts cnt = 
+				RoomCountsFactory.getRoomCounts(5, startDate, initial_days);
 		
 		List <List <Operation> > operationsPerThread = 
 				new ArrayList <List<Operation>> ();
@@ -432,7 +433,8 @@ public class Test_AvailableRoomCounts_MultiThread {
 	public void multiThreadTest_AvailableRoomCounts_High_Counter_Conflict () {
 				
 		final int initial_days = 30;
-		final AvailableRoomCounts cnt = new AvailableRoomCounts(5,new SimpleDate(), initial_days);
+		final RoomCounts cnt = 
+				RoomCountsFactory.getRoomCounts (5,new SimpleDate(), initial_days);
 		SimpleDate startDate = new SimpleDate();
 		
 		List <List <Operation> > operationsPerThread = 
@@ -487,7 +489,8 @@ public class Test_AvailableRoomCounts_MultiThread {
 	public void multiThreadTest_AvailableRoomCounts_Conflict_Delete () {
 				
 		final int initial_days = 30;
-		final AvailableRoomCounts cnt = new AvailableRoomCounts(5,new SimpleDate(), initial_days);
+		final RoomCounts cnt = 
+				RoomCountsFactory.getRoomCounts(5,new SimpleDate(), initial_days);
 		SimpleDate startDate = new SimpleDate();
 		
 		List <List <Operation> > operationsPerThread = 
