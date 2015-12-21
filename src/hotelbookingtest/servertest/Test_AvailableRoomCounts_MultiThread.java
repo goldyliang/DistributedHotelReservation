@@ -343,6 +343,8 @@ public class Test_AvailableRoomCounts_MultiThread {
 				
 				long time_end = System.currentTimeMillis();
 				System.out.println ("Total time used:" + (time_end - time));
+				//System.out.println ("Total contention for counters:" + 
+				//		roomCnt.contentCount.get());
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
