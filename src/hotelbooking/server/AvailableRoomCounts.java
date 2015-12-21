@@ -1,6 +1,7 @@
 package hotelbooking.server;
 
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -33,17 +34,6 @@ public class AvailableRoomCounts {
     // Total number of available rooms before any booking
     private final int totalRooms;
     
-    /*
-     * Holder of a counter stored as integer
-     */
-    private class Counter {
-    	// As a simple holder class, provide public member variable for easy access
-    	public int count;
-    	
-    	// Construct a counter always with initial value
-    	public Counter (int cnt) {count = cnt;}
-    }
-    
     // The date on which the first counter stores for the booking
     private SimpleDate startDate;
     
@@ -52,7 +42,7 @@ public class AvailableRoomCounts {
     // Then the other counts are stored in day-increasing order.
     // For the dates beyond the end of the list, there is no 
     // booking yet (ie. counter value = totalRooms)
-    private final ArrayList <Counter> availCounts;
+    private final ArrayList <AtomicInteger> availCounts;
     
     // Read write lock to sync the operation between
     //    > read/increase/decrease/modify of a counter, and 
@@ -60,25 +50,6 @@ public class AvailableRoomCounts {
     private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
     private final Lock rLock = rwLock.readLock();
     private final Lock wLock = rwLock.writeLock();
-    
-    // Synchronize the access to each counter values
-    // To avoid too many synchronize objects, the counters are partitioned
-    // to NUM_SYNC_OBJS parts, and each part has one lock.
-    // For each counter of availCounts.get(i), the update
-    // is synchronized by the object of syncObj[i % NUM_SYNC_OBJS]
-    // To achieve optimistic concurrency, set NUM_SYNC_OBJS
-    // to number of available computing units (cores)
-    private final int NUM_SYNC_OBJS;
-    private final Object[] syncObj;
-    
-    {        
-    	NUM_SYNC_OBJS = 512;//Runtime.getRuntime().availableProcessors();
-    	
-    	syncObj = new Object[NUM_SYNC_OBJS];
-    	
-        for (int i=0;i<NUM_SYNC_OBJS;i++)
-            syncObj[i] = new Object();
-    }
     
     /**
      * Construct with the parameter of available room count,
@@ -97,12 +68,12 @@ public class AvailableRoomCounts {
     	if (days <= 0) throw new RuntimeException ("Invalid days:" + days);
     	
         this.totalRooms = totalRooms;
-        availCounts = new ArrayList <Counter> (days);
+        availCounts = new ArrayList <AtomicInteger> (days);
         
         this.startDate = startDate.clone(); // SimpleDate is mutable, so needs a clone
         
         for (int i=0; i<days; i++) {
-            availCounts.add(new Counter(totalRooms));
+            availCounts.add(new AtomicInteger(totalRooms));
         }
         
     }
@@ -140,7 +111,7 @@ public class AvailableRoomCounts {
             	return totalRooms;
             }
             
-            return availCounts.get(i).count;
+            return availCounts.get(i).get();
         } finally {
         	rLock.unlock();
         }
@@ -197,7 +168,7 @@ public class AvailableRoomCounts {
 	        cnt = totalRooms;
 	        
 	        while (i <= endIdx) {
-	            int n = availCounts.get(i++).count;
+	            int n = availCounts.get(i++).get();
 	            if (n < cnt)
 	                cnt = n;
 	        }
@@ -210,6 +181,8 @@ public class AvailableRoomCounts {
 
     }
     
+    //public AtomicInteger contentCount = new AtomicInteger(0);
+    
     // Decrease the avail count indexed by idx.
     // Return false if the count is already zero.
     // Return true  if originally greater than zero
@@ -217,21 +190,24 @@ public class AvailableRoomCounts {
     // And this call is synchronized with other update towards the same counter
     private boolean decreaseCount (int idx) {
     
-        boolean r = false;
-        
     	// Assumed that the rLock is already granted for the whole list
     	// So getting the counter object is safe
-        Counter n = availCounts.get(idx);
+        AtomicInteger n = availCounts.get(idx);
         
-        synchronized (syncObj [idx % NUM_SYNC_OBJS]) 
-        {
-            if (n.count > 0) {
-                n.count --;
-                r = true;
-            }
-        }
+        int cnt;
+        //int cc = -1;
+        do {
+        	//cc ++;
+        	cnt = n.get();
+        	if (cnt <=0 )
+        		return false;
+        	// if the compare does not pass, it indicates a modification
+        	// by other thread. The check needs to be redone
+        } while (! n.compareAndSet(cnt, cnt - 1));
         
-        return r;
+        //contentCount.addAndGet(cc);
+        
+        return true;
     }
     
     // Increase the avail count indexed by idx (upper bound = totalRooms)
@@ -241,20 +217,26 @@ public class AvailableRoomCounts {
     // And this call is synchronized with other update towards the same counter
     private boolean increaseCount (int idx) {
     
-        boolean r = false;
-        
     	// Assumed that the rLock is already granted for the whole list
     	// So getting the counter object is safe
-        Counter n = availCounts.get(idx);
+        AtomicInteger n = availCounts.get(idx);
         
-        synchronized (syncObj [idx % NUM_SYNC_OBJS]) 
-        {
-            if (n.count < totalRooms) {
-                n.count ++;
-                r = true;
-            }
-        }
-        return r;
+        int cnt;
+        //int cc = -1;
+        do {
+        	//cc ++;
+        	cnt = n.get();
+        	if (cnt >= totalRooms )
+        		return false;
+        	
+        	// if the compare does not pass, it indicates a modification
+        	// by other thread. The check needs to be redone
+        } while (! n.compareAndSet(cnt, cnt + 1));
+        
+       // contentCount.addAndGet(cc);
+
+        
+        return true;
     }
 
     /*
@@ -273,7 +255,7 @@ public class AvailableRoomCounts {
     	new_size = (size1 > new_size? size1 : new_size);
     	
         for (int i=0; i< new_size -len; i++) {
-            availCounts.add(new Counter(totalRooms));
+            availCounts.add(new AtomicInteger(totalRooms));
         }
         return true;
     }
