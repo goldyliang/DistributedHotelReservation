@@ -12,7 +12,6 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
-import java.rmi.RemoteException;
 import java.util.ArrayList;
 //import java.util.Calendar;
 //import java.util.Date;
@@ -143,7 +142,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
 
     
     @Override
-    public HotelProfile getProfile () throws RemoteException {
+    public HotelProfile getProfile () {
         return prof;
     }
     
@@ -175,7 +174,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public ErrorCode reserveRoom (
             String guestID, RoomType roomType, 
-            SimpleDate checkInDate, SimpleDate checkOutDate, int resID) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate, int resID) {
         
         Record newRec = new Record (
         		resID,
@@ -228,7 +227,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public ErrorCode cancelRoom (
             String guestID, RoomType roomType, 
-            SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate) {
         
 
 
@@ -281,7 +280,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     
     @Override
     public Record[] getReserveRecords (
-            String guestID ) throws RemoteException {
+            String guestID ) {
         
         Record [] records = resRecords.getRecords(guestID);
         
@@ -298,7 +297,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         return records;
     }
     
-    public Record[] getServiceReport (final SimpleDate serviceDate) throws RemoteException {
+    public Record[] getServiceReport (final SimpleDate serviceDate) {
         
         // Have to traverse the whole records.
         
@@ -324,7 +323,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         return res.toArray(new Record[0]) ;
     }
     
-    public Record[] getStatusReport (final SimpleDate date) throws RemoteException {
+    public Record[] getStatusReport (final SimpleDate date) {
         
         // Have to traverse the whole records.
         
@@ -668,7 +667,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         }
     }
     
-    public IHotelServerManager getManagerObject (String managerID, String passWord) throws RemoteException {
+    public IHotelServerManager getManagerObject (String managerID, String passWord) {
         
         // To be simplified, only check the guestID
         
@@ -755,7 +754,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
         try {
             if (adminObj!=null)
                 adminObj.unRegisterHotelQuerySocket(queryPort);
-        } catch (RemoteException e) {
+        } catch (Exception e) {
             ErrorAndLogMsg.ExceptionErr(e, "Exception when un-registering socket");
         }
 
@@ -1092,7 +1091,7 @@ public class HotelServer implements IHotelServer, IHotelServerManager, Runnable 
     @Override
     public List<Availability> checkAvailability (
             String guestID, RoomType roomType,
-            SimpleDate checkInDate, SimpleDate checkOutDate ) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate ) {
         
         String regHost;
         int regPort, queryPort;

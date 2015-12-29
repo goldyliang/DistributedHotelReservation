@@ -1,6 +1,5 @@
 package hotelbooking.client;
 
-import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,7 +28,7 @@ public class HotelServerProxy implements IHotelServer {
     }
 
     @Override
-    public HotelProfile getProfile() throws RemoteException {
+    public HotelProfile getProfile() {
         
         CHotelProfileHolder profile = new CHotelProfileHolder();
         
@@ -44,7 +43,7 @@ public class HotelServerProxy implements IHotelServer {
 
     @Override
     public ErrorCode reserveRoom(String guestID, RoomType roomType,
-            SimpleDate checkInDate, SimpleDate checkOutDate, int id) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate, int id) {
         
         int r = this.serverObj.reserveHotel(
                 guestID,
@@ -60,7 +59,7 @@ public class HotelServerProxy implements IHotelServer {
 
     @Override
     public ErrorCode cancelRoom(String guestID, RoomType roomType,
-            SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException {
+            SimpleDate checkInDate, SimpleDate checkOutDate) {
         
         int r = this.serverObj.cancelHotel(
                 guestID,
@@ -76,7 +75,7 @@ public class HotelServerProxy implements IHotelServer {
     @Override
     public List<Availability> checkAvailability(String guestID,
             RoomType roomType, SimpleDate checkInDate, SimpleDate checkOutDate)
-            throws RemoteException {
+            {
 
         CListAvailabilityHolder holder = new CListAvailabilityHolder();
         
@@ -100,14 +99,13 @@ public class HotelServerProxy implements IHotelServer {
     }
 
     @Override
-    public Record[] getReserveRecords(String guestID) throws RemoteException {
+    public Record[] getReserveRecords(String guestID) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public IHotelServerManager getManagerObject(String guestID, String passWord)
-            throws RemoteException {
+    public IHotelServerManager getManagerObject(String guestID, String passWord) {
         
         CIHotelServerManagerHolder mgrHolder = new CIHotelServerManagerHolder();
         

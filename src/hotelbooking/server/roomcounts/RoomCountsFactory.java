@@ -6,7 +6,7 @@ public abstract class RoomCountsFactory {
 	
 	public static enum Feature {RWLock_SyncObj, RWLock_AtomicInteger, AllSyncObj};
 	
-	private static Feature defaultFeature = Feature.RWLock_AtomicInteger;
+	private static Feature defaultFeature = Feature.AllSyncObj;
 	
 	public static RoomCounts getRoomCounts (
 			Feature feature,

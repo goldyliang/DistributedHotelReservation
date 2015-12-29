@@ -364,7 +364,7 @@ public class Test_AvailableRoomCounts_MultiThread {
 		
         final int num_threads=4;
 
-		final int num_oprs = 100000;
+		final int num_oprs = 1000000;
 		int focus_days_start = 0;
 		int focus_days_end = 35; 
 		final int inc_possibility_factor = 15; // 15%

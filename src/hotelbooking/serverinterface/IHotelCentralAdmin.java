@@ -1,15 +1,13 @@
 package hotelbooking.serverinterface;
 
 import java.net.InetSocketAddress;
-import java.rmi.Remote;
-import java.rmi.RemoteException;
 import java.util.List;
 
-public interface IHotelCentralAdmin extends Remote {
+public interface IHotelCentralAdmin{
 
-	public boolean registerHotelQuerySocket(int port) throws RemoteException;
+	public boolean registerHotelQuerySocket(int port);
 	
-    public boolean unRegisterHotelQuerySocket(int port) throws RemoteException;
+    public boolean unRegisterHotelQuerySocket(int port);
 	
-	public List<InetSocketAddress> getHotelQuerySockets () throws RemoteException;
+	public List<InetSocketAddress> getHotelQuerySockets ();
 }

@@ -1,25 +1,16 @@
 package hotelbooking.server;
 
-import java.rmi.RemoteException;
-import java.util.Collection;
 import java.util.List;
-import java.util.Properties;
 
-import org.omg.CORBA.IntHolder;
-import org.omg.CORBA.ORB;
-import org.omg.PortableServer.POA;
-import org.omg.PortableServer.POAHelper;
 
 import hotelbooking.CorbaInterface.CAvailability;
 import hotelbooking.CorbaInterface.CDate;
 import hotelbooking.CorbaInterface.CHotelProfileHolder;
 import hotelbooking.CorbaInterface.CIHotelServerManager;
-import hotelbooking.CorbaInterface.CIHotelServerManagerHelper;
 import hotelbooking.CorbaInterface.CIHotelServerManagerHolder;
 import hotelbooking.CorbaInterface.CIHotelServerPOA;
 import hotelbooking.CorbaInterface.CINetSocketAddress;
 import hotelbooking.CorbaInterface.CListAvailabilityHolder;
-import hotelbooking.CorbaInterface.CListRecordHolder;
 import hotelbooking.CorbaInterface.CRoomType;
 import hotelbooking.miscutil.Utilities;
 import hotelbooking.serverinterface.ErrorAndLogMsg;
@@ -28,7 +19,6 @@ import hotelbooking.serverinterface.IHotelServerManager;
 import hotelbooking.serverinterface.ErrorAndLogMsg.ErrorCode;
 import hotelbooking.serverinterface.IHotelServer.Availability;
 import hotelbooking.serverinterface.IHotelServer.HotelProfile;
-import hotelbooking.serverinterface.IHotelServer.Record;
 
 public class HotelServerImpl extends CIHotelServerPOA {
 

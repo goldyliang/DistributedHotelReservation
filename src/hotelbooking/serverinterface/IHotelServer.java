@@ -1,8 +1,6 @@
 package hotelbooking.serverinterface;
 
 import java.io.Serializable;
-import java.rmi.Remote;
-import java.rmi.RemoteException;
 import java.util.EnumMap;
 import java.util.List;
 
@@ -11,7 +9,7 @@ import hotelbooking.serverinterface.ErrorAndLogMsg.ErrorCode;
 
 import java.util.Collection;
 
-public interface IHotelServer extends Remote {
+public interface IHotelServer {
 	
 	public enum RoomType {SINGLE, DOUBLE, FAMILY};
 	
@@ -130,22 +128,22 @@ public interface IHotelServer extends Remote {
 		public EnumMap <RoomType, Float> rates;
 	}
 	
-	public HotelProfile getProfile () throws RemoteException;
+	public HotelProfile getProfile ();
 	
 	public ErrorCode reserveRoom (
 			String guestID, RoomType roomType, 
-			SimpleDate checkInDate, SimpleDate checkOutDate, int resID) throws RemoteException;
+			SimpleDate checkInDate, SimpleDate checkOutDate, int resID);
 	
 	public ErrorCode cancelRoom (
 			String guestID, RoomType roomType, 
-			SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException;
+			SimpleDate checkInDate, SimpleDate checkOutDate);
 	
 	public List<Availability> checkAvailability (
 			String guestID, RoomType roomType,
-			SimpleDate checkInDate, SimpleDate checkOutDate) throws RemoteException;
+			SimpleDate checkInDate, SimpleDate checkOutDate);
 	
 	public Record[] getReserveRecords (
-			String guestID ) throws RemoteException;
+			String guestID );
 	
 	// If roomType, checkInDate, checkOutDate, is null, do not validate
 	// If yes, validate the fields
@@ -156,5 +154,5 @@ public interface IHotelServer extends Remote {
 	        String targetHotel,
 	        int newResID);
 	
-	public IHotelServerManager getManagerObject (String guestID, String passWord) throws RemoteException;
+	public IHotelServerManager getManagerObject (String guestID, String passWord);
 }

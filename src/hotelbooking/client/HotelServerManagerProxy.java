@@ -1,6 +1,5 @@
 package hotelbooking.client;
 
-import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -20,7 +19,7 @@ public class HotelServerManagerProxy implements IHotelServerManager {
     }
     
     @Override
-    public Record[] getServiceReport(SimpleDate serviceDate) throws RemoteException {
+    public Record[] getServiceReport(SimpleDate serviceDate){
         
         CListRecordHolder list = new CListRecordHolder();
         
@@ -51,7 +50,7 @@ public class HotelServerManagerProxy implements IHotelServerManager {
     }
 
     @Override
-    public Record[] getStatusReport(SimpleDate  date) throws RemoteException {
+    public Record[] getStatusReport(SimpleDate  date) {
         
         CListRecordHolder list = new CListRecordHolder();
         

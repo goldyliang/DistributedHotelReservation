@@ -1,11 +1,5 @@
 package hotelbooking.client;
 
-import java.io.PrintStream;
-import java.rmi.Remote;
-import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -19,19 +13,14 @@ import org.omg.CosNaming.BindingType;
 import org.omg.CosNaming.Binding;
 import org.omg.CosNaming.BindingIteratorHolder;
 import org.omg.CosNaming.BindingListHolder;
-import org.omg.CosNaming.NameComponent;
 import org.omg.CosNaming.NamingContextExt;
 import org.omg.CosNaming.NamingContextExtHelper;
-import org.omg.CosNaming.NamingContextHelper;
 
 import hotelbooking.CorbaInterface.CIHotelServer;
 import hotelbooking.CorbaInterface.CIHotelServerHelper;
 import hotelbooking.miscutil.SimpleDate;
-import hotelbooking.miscutil.Utilities;
-import hotelbooking.server.HotelServer;
 import hotelbooking.serverinterface.*;
 import hotelbooking.serverinterface.ErrorAndLogMsg.ErrorCode;
-import hotelbooking.serverinterface.ErrorAndLogMsg.MsgType;
 import hotelbooking.serverinterface.IHotelServer.*;
 
 
@@ -218,58 +207,6 @@ public class HotelClient {
     //and delete those do not exist any more.
     //return number of new servers
     ErrorAndLogMsg getHotelServerObjects () {
-        
-/*        try {
-            Context ictx = new InitialContext();
-            Context registryCtx = (Context)ictx.lookup("rmi://localhost:1099");
-            
-            NamespaceChangeListener listener = new NamespaceChangeListener () {
-                public void objectAdded(NamingEvent evt) {
-                    System.out.println (evt.getOldBinding().toString());
-                    System.out.println (evt.getNewBinding().toString());
-                }
-                
-                public void objectRemoved (NamingEvent evt) {
-                    System.out.println (evt.getOldBinding().toString());
-                    System.out.println (evt.getNewBinding().toString());
-                }
-                
-                public void objectRenamed (NamingEvent evt) {
-                    System.out.println (evt.getOldBinding().toString());
-                    System.out.println (evt.getNewBinding().toString());
-                }
-
-                @Override
-                public void namingExceptionThrown(NamingExceptionEvent evt) {
-                    // TODO Auto-generated method stub
-                    evt.getException().printStackTrace();
-                }
-            };
-            
-            EventContext evCtx = (EventContext) registryCtx; // new EventContext();
-            evCtx.addNamingListener(registryCtx.getNameInNamespace(), EventContext.ONELEVEL_SCOPE, listener);
-            
-            NamingEnumeration<Binding> bindings = registryCtx.listBindings(registryCtx.getNameInNamespace());
-            
-            while (bindings.hasMore()) {
-                Binding b = bindings.next();
-                
-                System.out.println (b.getName());
-                System.out.println (b.getClassName());
-                
-            }
-        NamingEnumeration<NameClassPair> name_classes = registryCtx.list( registryCtx.getNameInNamespace());
-            
-            while (name_classes.hasMore()) {
-                NameClassPair name_class = name_classes.next();
-                System.out.println (name_class.getName());
-                System.out.println (name_class.getClassName());
-            } 
-        } catch (NamingException e) {
-            return ErrorAndLogMsg.ExceptionErr(e, "Exception when getting/updatting hotel server objects");
-        }
-
-        return null; */
     	
     	if ( this.myReplicaServerID >= 0)
     		// don't retrieve server objects for now,
@@ -374,8 +311,8 @@ public class HotelClient {
                 return ErrorAndLogMsg.GeneralErr(err, "Error invoking reserveRoom");
             }
             
-        } catch (RemoteException e) {
-            ErrorAndLogMsg m = ErrorAndLogMsg.ExceptionErr(e, "Remote Exception when invoking reserveRoom");
+        } catch (Exception e) {
+            ErrorAndLogMsg m = ErrorAndLogMsg.ExceptionErr(e, "Exception when invoking reserveRoom");
             
             // Try to retrieve server object again and retry
             ErrorAndLogMsg m1 = getSingleHotelServerObject(hotelName, true);
@@ -419,7 +356,7 @@ public class HotelClient {
                 return ErrorAndLogMsg.GeneralErr(err, "Error invoking cancelRoom");
             }
             
-        } catch (RemoteException e) {
+        } catch (Exception e) {
             return ErrorAndLogMsg.ExceptionErr(e, "Remote Exception when invoking cancelRoom");
         }
     }
@@ -447,7 +384,7 @@ public class HotelClient {
             ErrorAndLogMsg.LogMsg("Query avail success:" + rec.toOneLineString()).printMsg();
             
             return null;
-        } catch (RemoteException e) {
+        } catch (Exception e) {
             return ErrorAndLogMsg.ExceptionErr(e, "Remote Exception when invoking reserveRoom");
         }
     }
@@ -475,7 +412,7 @@ public class HotelClient {
             
             try {
                 recs = srv.getReserveRecords(guestID);
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 return ErrorAndLogMsg.ExceptionErr(e,
                         "Exception when retrieving reserve records from server " + 
                         srv_wrapper.prof.shortName);
@@ -522,7 +459,7 @@ public class HotelClient {
                     m.printMsg();
                     return m;
                 }
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 return ErrorAndLogMsg.ExceptionErr(e, "Exception when getting manager object");
             }
         }
@@ -543,7 +480,6 @@ public class HotelClient {
             return ErrorAndLogMsg.GeneralErr(ErrorCode.HOTEL_NOT_FOUND, 
                     "Hotel not found:" + hotel);
         
-        IHotelServer server = server_wrapper.server;
         IHotelServerManager mgr = server_wrapper.serverMgr;
         
         if (mgr==null) 
@@ -581,7 +517,6 @@ public class HotelClient {
             return ErrorAndLogMsg.GeneralErr(ErrorCode.HOTEL_NOT_FOUND, 
                     "Hotel not found:" + hotel);
         
-        IHotelServer server = server_wrapper.server;
         IHotelServerManager mgr = server_wrapper.serverMgr;
         
         if (mgr==null) 
@@ -611,7 +546,6 @@ public class HotelClient {
     	
         for (HotelServerWrapper server_wrapper : servers.values()) {
         	
-            IHotelServer server = server_wrapper.server;
             
     		// Temporary solution by hard-coding user name and password
             System.out.println ("Try to login: " + server_wrapper.prof.shortName );
@@ -670,10 +604,7 @@ public class HotelClient {
                     guestID, targetHotel, type, 
                     checkInDate, 
                     checkOutDate, 0);
-            
-            
-            int [] idHolder = new int[1];
-            
+                        
             ErrorCode err = server.transferRoom(
                     guestID, 
                     resID,
