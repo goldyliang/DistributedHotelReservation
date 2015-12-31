@@ -471,7 +471,7 @@ public class HotelServer implements IHotelServer, Runnable {
     
     //Arg#1 Property file of the server
     //      If missing, just look into the current dir of "config.properties".
-    public static void main (String args[]) {
+    public static void oldMain (String args[]) {
         
         //String regHost;
         //int regPort;

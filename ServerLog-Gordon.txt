@@ -1,2 +1,3 @@
-LOG:Mon Oct 26 17:00:13 EDT 2015:Logging started.
-LOG:Mon Oct 26 17:00:13 EDT 2015:Logging started.
+LOG:Wed Dec 30 20:36:03 EST 2015:Logging started.
+LOG:Wed Dec 30 20:36:03 EST 2015:Logging started.
+LOG:Wed Dec 30 20:39:05 EST 2015:Time out receiving query respond, finished receiving..
