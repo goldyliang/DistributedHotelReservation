@@ -9,9 +9,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.EnumMap;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlTransient;
 
 import java.nio.ByteBuffer;
 import java.text.DateFormat;
@@ -23,22 +20,25 @@ import java.util.Date;
 public class HotelServerTypes {
 
 	
-	public enum RoomType {SINGLE, DOUBLE, FAMILY};
+	public enum RoomType {
+		SINGLE, DOUBLE, FAMILY;
+		
+		RoomType () {}
+		};
 
-	 @XmlRootElement(name="HotelProfileElem")
 	 public static class HotelProfile  {
 		 
-		@XmlElement	public String shortName;
+		public String shortName;
 		
-		@XmlElement public String fullName;
+		public String fullName;
 		
-		@XmlElement public String descText;
+		public String descText;
 		
-		@XmlElement public EnumMap <RoomType, Integer> totalRooms;
+		public EnumMap <RoomType, Integer> totalRooms;
 		
-		@XmlElement public EnumMap <RoomType, Float> rates;
+		public EnumMap <RoomType, Float> rates;
 		
-		@XmlTransient public int allTotalRooms;
+		public int allTotalRooms;
 		
 		
 	}
@@ -140,7 +140,6 @@ public class HotelServerTypes {
 		
 	}
 
-	@XmlRootElement
 	public static class SimpleDate {
 	    public int year;
 	    public int month;

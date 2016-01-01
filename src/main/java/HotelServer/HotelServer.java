@@ -32,7 +32,6 @@ import common.ErrorAndLogMsg.MsgType;
 import common.HotelServerTypes.*;
 import serverws.HotelServerWS;
 
-
 public class HotelServer implements IHotelServer, Runnable {
 
     final static String DEFAULT_LOG_FILE_PATH = "ServerLog.txt";
@@ -646,6 +645,131 @@ public class HotelServer implements IHotelServer, Runnable {
         }
     }
     
+    public static HotelServer createServer (String configFile) {
+            
+        //String regHost;
+        //int regPort;
+        int httpPort, httpManPort, queryPort;
+        String name;
+        
+        FileInputStream input=null;
+        HotelProfile prof = new HotelProfile();
+        String mgrID, mgrPass, centralAdminName;
+        
+        String logFilePath = null;
+
+        try {
+        
+            input = new FileInputStream(configFile);
+            
+            // load a properties file
+            Properties prop = new Properties();
+            prop.load(input);
+
+            // get the registry and naming properties
+            //regHost = prop.getProperty("RegistryHost");
+            //regPort = Integer.parseInt(prop.getProperty("RegistryPort"));
+            httpPort = Integer.parseInt(prop.getProperty("HTTPPort"));
+            httpManPort = Integer.parseInt(prop.getProperty("HTTPManPort"));
+            name = prop.getProperty("BindName");
+            centralAdminName = prop.getProperty("AdminName");
+            
+
+            prof.shortName = name;
+            prof.fullName = prop.getProperty("FullName");
+            prof.descText = prop.getProperty("Description");
+            
+            prof.totalRooms = new EnumMap <RoomType, Integer> (RoomType.class);
+            prof.rates = new EnumMap <RoomType, Float> (RoomType.class);
+            
+            String sQueryPort = prop.getProperty("QueryPort");
+            if (sQueryPort==null || sQueryPort.isEmpty())
+                queryPort = DEFAULT_LISTEN_PORT;
+            else
+                queryPort = Integer.parseInt(sQueryPort);
+            
+            prof.allTotalRooms = 0;
+            
+            for (RoomType typ:RoomType.values()) {
+                int cnt = Integer.parseInt(prop.getProperty("RoomCnt-" + typ.toString()) );
+                prof.totalRooms.put(typ, cnt);
+                
+                prof.allTotalRooms += cnt;
+                
+                float rate = Float.parseFloat(prop.getProperty("Rate-" + typ.toString() ));
+                prof.rates.put(typ, rate);
+            }
+            
+            mgrID = prop.getProperty("ManagerID");
+            mgrPass = prop.getProperty("ManagerPassword");
+            
+            logFilePath = prop.getProperty("LogFile");
+            logQueries = prop.getProperty("LogQueries").equals("1");
+            
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            return null;
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        
+        //Open the log file and append contents
+        if (logFilePath==null || logFilePath.isEmpty()) {
+            logFilePath = DEFAULT_LOG_FILE_PATH;
+        }
+        
+
+        File logFile = new File (logFilePath);
+
+        PrintStream logStream = null;
+
+        try {
+            logStream = new PrintStream(logFile);
+        } catch (IOException e) {
+            System.out.println ("Log file open and creation error.");
+            e.printStackTrace();
+        }
+        
+        ErrorAndLogMsg.addStream(MsgType.ERR, System.err);
+        ErrorAndLogMsg.addStream(MsgType.WARN, System.out);
+        ErrorAndLogMsg.addStream(MsgType.INFO, System.out);
+
+        
+        if (logStream!=null) {
+            // every thing put to the log file
+            ErrorAndLogMsg.addStream(MsgType.LOG, logStream ); // the log fine
+            ErrorAndLogMsg.addStream(MsgType.ERR, logStream );
+            ErrorAndLogMsg.addStream(MsgType.WARN, logStream);
+            ErrorAndLogMsg.addStream(MsgType.INFO, logStream);
+        }
+        
+        ErrorAndLogMsg.setAutoPrint(true);
+
+        //logStream.println("Log started");
+        ErrorAndLogMsg.LogMsg("Logging started.").printMsg();
+        
+        
+        // Now we can create the server object
+        HotelServer server = new HotelServer(prof, queryPort);
+        
+        server.managerID = mgrID;
+        server.managerPassword = mgrPass;
+        
+        server.loadServerAddPorts();
+        
+        server.startQueryListeningThread(); // throw exception if thread start failed
+        
+        System.out.println("Server running!");
+        
+        return server;
+        	
+    }
     
     private void loadServerAddPorts () {
 
