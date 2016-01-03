@@ -1,8 +1,8 @@
-package server.roomcounts;
+package server.impl.roomcounts;
 
 import java.util.ArrayList;
 
-import server.HotelServerTypes.SimpleDate;
+import server.DataTypes.SimpleDate;
 
 
 /**

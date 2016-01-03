@@ -9,17 +9,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-import HotelServerInterface.IHotelServer;
 import server.HotelServer;
-import server.HotelServerTypes.HotelProfile;
+import server.DataTypes.HotelProfile;
+import server.impl.HotelServerImpl;
 
 
 @SpringBootApplication
 public class Application {
 
 	@Bean
-	public IHotelServer hotelServer() {
-	    IHotelServer server = HotelServer.createServer("config.properties.Gordon");
+	public HotelServer hotelServer() {
+	    HotelServer server = HotelServerImpl.createServer("config.properties.Gordon");
 	    return server;
 	}
 	

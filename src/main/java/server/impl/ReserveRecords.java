@@ -1,4 +1,4 @@
-package server;
+package server.impl;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -10,7 +10,8 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import server.HotelServerTypes.*;
+import server.DataTypes;
+import server.DataTypes.*;
 
 
 /*

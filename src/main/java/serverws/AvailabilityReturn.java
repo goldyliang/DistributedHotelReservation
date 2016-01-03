@@ -3,7 +3,7 @@ package serverws;
 import java.util.List;
 
 import server.ErrorAndLogMsg.ErrorCode;
-import server.HotelServerTypes.*;
+import server.DataTypes.*;
 
 
 public class AvailabilityReturn {

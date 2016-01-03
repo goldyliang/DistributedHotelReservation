@@ -1,4 +1,4 @@
-LOG:Sat Jan 02 23:38:07 EST 2016:Logging started.
-LOG:Sat Jan 02 23:38:07 EST 2016:Logging started.
-LOG:Sat Jan 02 23:38:57 EST 2016:Reservation success: ResID:500000;GuestID:12345;Hotel:Gordon;Type:SINGLE;In:2016/01/10;Out:2016/01/15;Rate:80.0;From: N/A
-LOG:Sat Jan 02 23:39:12 EST 2016:Cancelation success: ResID:0;GuestID:12345;Hotel:Gordon;Type:SINGLE;In:2016/01/10;Out:2016/01/15;Rate:80.0;From: N/A
+LOG:Sat Jan 02 23:58:18 EST 2016:Logging started.
+LOG:Sat Jan 02 23:58:18 EST 2016:Logging started.
+LOG:Sat Jan 02 23:58:40 EST 2016:Reservation success: ResID:5280000;GuestID:12345;Hotel:Gordon;Type:SINGLE;In:2016/01/10;Out:2016/01/15;Rate:80.0;From: N/A
+LOG:Sat Jan 02 23:58:50 EST 2016:Cancelation success: ResID:0;GuestID:12345;Hotel:Gordon;Type:SINGLE;In:2016/01/10;Out:2016/01/15;Rate:80.0;From: N/A

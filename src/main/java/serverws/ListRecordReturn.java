@@ -5,7 +5,7 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlRootElement;
 
 import server.ErrorAndLogMsg.ErrorCode;
-import server.HotelServerTypes.Record;
+import server.DataTypes.Record;
 
 @XmlRootElement
 public class ListRecordReturn {

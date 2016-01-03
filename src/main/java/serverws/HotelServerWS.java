@@ -15,24 +15,24 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import HotelServerInterface.IHotelServer;
 import server.ErrorAndLogMsg;
+import server.HotelServer;
 import server.ErrorAndLogMsg.ErrorCode;
-import server.HotelServerTypes.*;
+import server.DataTypes.*;
 
 //Wrapper class for HotelServer Webservice
 
 @RestController
 public class HotelServerWS {
 
-    IHotelServer server;
+    HotelServer server;
     
     public HotelServerWS () {
     	System.out.println("Construction");
     }
     
 	@Autowired
-    public HotelServerWS (IHotelServer server) {
+    public HotelServerWS (HotelServer server) {
         this.server = server;
     }
     
