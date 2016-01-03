@@ -28,6 +28,8 @@ import HotelServer.ErrorAndLogMsg.ErrorCode;
 import HotelServer.ErrorAndLogMsg.MsgType;
 import HotelServer.HotelServerTypes.*;
 import HotelServer.ReserveRecords.IRecordOperation;
+import HotelServer.roomcounts.RoomCounts;
+import HotelServer.roomcounts.RoomCountsFactory;
 import HotelServerInterface.IHotelServer;
 import serverws.HotelServerWS;
 
@@ -38,7 +40,7 @@ public class HotelServer implements IHotelServer, Runnable {
     static boolean logQueries = false;
     
     // Count of available rooms per room type, across the days
-    private EnumMap <RoomType, AvailableRoomCounts> roomCounts;
+    private EnumMap <RoomType, RoomCounts> roomCounts;
     
     private long managerLoginToken = -1;
     
@@ -91,10 +93,13 @@ public class HotelServer implements IHotelServer, Runnable {
         
         this.prof = prof;
         
-        roomCounts = new EnumMap <RoomType, AvailableRoomCounts> (RoomType.class);
+        roomCounts = new EnumMap <RoomType, RoomCounts> (RoomType.class);
         for (RoomType t:RoomType.values()) {
             roomCounts.put(t, 
-                    new AvailableRoomCounts ( prof.totalRooms.get(t), 30 ) );
+            		RoomCountsFactory.getRoomCounts( 
+            				prof.totalRooms.get(t), 
+            				new SimpleDate(),
+            				30 ) );
         }
         
         resRecords = new ReserveRecords();
@@ -156,10 +161,10 @@ public class HotelServer implements IHotelServer, Runnable {
         logStr = logStr + getClientHostLog();
 
         
-        AvailableRoomCounts counts = roomCounts.get(roomType);
+        RoomCounts counts = roomCounts.get(roomType);
         
         //First do "pre-server" operation by checking and decreasing the available room counters
-        boolean r = counts.decrementDays(checkInDate, checkOutDate);
+        boolean r = counts.decreaseDayRange(checkInDate, checkOutDate);
         
         if (r) {
             // Successfuly pre-servered, now add the reservation records
@@ -179,7 +184,7 @@ public class HotelServer implements IHotelServer, Runnable {
             else {
                 //some error happens when adding reserve record, 
                 //need to revert the counters of pre-servation
-                counts.incrementDays(checkInDate, checkOutDate);    
+                counts.increaseDayRange(checkInDate, checkOutDate);    
                 
                 ErrorAndLogMsg.GeneralErr(ErrorCode.INTERNAL_ERROR, "Internal error making reservation: " + logStr);
                 return ErrorCode.INTERNAL_ERROR;
@@ -200,7 +205,7 @@ public class HotelServer implements IHotelServer, Runnable {
 
 
         
-        AvailableRoomCounts counts = roomCounts.get(roomType);
+        RoomCounts counts = roomCounts.get(roomType);
         Record cancelRec = new Record (
                 0, // do not provide, just match the dates
                 guestID, 
@@ -222,7 +227,7 @@ public class HotelServer implements IHotelServer, Runnable {
             // Now we found the record and delete/update already.
             // Then we need to update the Room availability counters
             
-            r = counts.incrementDays(checkInDate, checkOutDate);
+            r = counts.increaseDayRange(checkInDate, checkOutDate);
             
             if (!r) {
                 ErrorAndLogMsg.GeneralErr(ErrorCode.INTERNAL_ERROR, "Internal error canceling: " + logStr);
@@ -434,11 +439,11 @@ public class HotelServer implements IHotelServer, Runnable {
         for (RoomType typ: RoomType.values()) {
             System.out.println ("\n\nCounters for type:" + typ.toString());
             
-            AvailableRoomCounts ct = roomCounts.get(typ);
+            RoomCounts ct = roomCounts.get(typ);
             
             SimpleDate dt= new SimpleDate(); //today
             
-            SimpleDate dt_end = ct.getBookingEndDate();
+            SimpleDate dt_end = ct.getLastAllocatedDate();
             
             for (int n=0; n<10; n++) {
                 System.out.print ( String.format("%3d",n));
@@ -451,7 +456,7 @@ public class HotelServer implements IHotelServer, Runnable {
                 
                 int n = 0;
                 while (n<10 && !dt.after(dt_end)) {
-                    int cnt = ct.getCount(dt);
+                    int cnt = ct.queryCount(dt);
                     System.out.print (String.format("%3d",cnt));
                     n++;
                     
@@ -1001,7 +1006,7 @@ public class HotelServer implements IHotelServer, Runnable {
         } */
         
         // do the query
-        int avail = roomCounts.get(msgRequest.roomType).query(msgRequest.inDate, msgRequest.outDate);
+        int avail = roomCounts.get(msgRequest.roomType).queryCount(msgRequest.inDate, msgRequest.outDate);
         
         // compose the reply message
         UDPMessage msgReply = new UDPMessage();
@@ -1624,11 +1629,11 @@ public class HotelServer implements IHotelServer, Runnable {
         
         // increase the room counters to release the rooms
         
-        AvailableRoomCounts cnts = this.roomCounts.get(roomType);
+        RoomCounts cnts = this.roomCounts.get(roomType);
         // shall not be null
         
         if (cnts!=null) {
-            cnts.incrementDays(checkInDate, checkOutDate);
+            cnts.increaseDayRange(checkInDate, checkOutDate);
         }
         
         // return the newID
@@ -1672,13 +1677,13 @@ public class HotelServer implements IHotelServer, Runnable {
         int returnCode = 1; //1 for OK, other for NOT OK
         if (valid) {
             // check availability counts
-            AvailableRoomCounts cnts = this.roomCounts.get(msgReq.roomType);
+            RoomCounts cnts = this.roomCounts.get(msgReq.roomType);
             if (cnts==null) {
                 returnCode = 0;
             }
             else {
                 // try to preserve the rooms
-                if (cnts.decrementDays(msgReq.inDate, msgReq.outDate))
+                if (cnts.decreaseDayRange(msgReq.inDate, msgReq.outDate))
                     returnCode = 1;
                 else
                     returnCode = 0;
@@ -1740,10 +1745,10 @@ public class HotelServer implements IHotelServer, Runnable {
 
             if (returnCode ==1) {
                 // need to roll back only if there is availble room and decreased the count
-                AvailableRoomCounts cnts = this.roomCounts.get(msgReq.roomType);
+                RoomCounts cnts = this.roomCounts.get(msgReq.roomType);
                 if (cnts!=null)
                     // release the rooms
-                    cnts.incrementDays(msgReq.inDate, msgReq.outDate);
+                    cnts.increaseDayRange(msgReq.inDate, msgReq.outDate);
             } 
             
             ErrorAndLogMsg.LogMsg(transInfo + "Terminated" + result);
@@ -1816,10 +1821,10 @@ public class HotelServer implements IHotelServer, Runnable {
                     // any error when receiving
                     // need to roll back
                     // we have access to the object here
-                    AvailableRoomCounts cnts; // the reference to the server object
+                    RoomCounts cnts; // the reference to the server object
                     cnts = roomCounts.get(msgReq.roomType);
                     if (cnts!=null)
-                        cnts.incrementDays(msgReq.inDate, msgReq.outDate);
+                        cnts.increaseDayRange(msgReq.inDate, msgReq.outDate);
                     
                     ErrorAndLogMsg.LogMsg(transInfo + "Transaction terminated. ErrorCode=" + result);
                     return;
@@ -1873,10 +1878,10 @@ public class HotelServer implements IHotelServer, Runnable {
                 // if record delete error, or ack send failure, or any other error, roll back
                 if (result!=ErrorCode.SUCCESS) {
                     resRecords.cancelReservation(msgReq.guestID, newRec, 0);
-                    AvailableRoomCounts cnts; // the reference to the server object
+                    RoomCounts cnts; // the reference to the server object
                     cnts = roomCounts.get(msgReq.roomType);
                     if (cnts!=null)
-                        cnts.incrementDays(msgReq.inDate, msgReq.outDate);
+                        cnts.increaseDayRange(msgReq.inDate, msgReq.outDate);
                     ErrorAndLogMsg.LogMsg(transInfo + "Transaction terminated. ErrorCode=" + result);
                 } else                
                     ErrorAndLogMsg.LogMsg(transInfo + "Transaction completed."); 
@@ -1913,7 +1918,7 @@ public class HotelServer implements IHotelServer, Runnable {
             @Override
             public void doOperation(Record r) {
 
-                SimpleDate startDate = roomCounts.get(r.roomType).getBookingStartDate();
+                SimpleDate startDate = roomCounts.get(r.roomType).getLastAllocatedDate();
                 SimpleDate inDate = r.checkInDate;
                 SimpleDate outDate = r.checkOutDate;
                 
@@ -1944,13 +1949,13 @@ public class HotelServer implements IHotelServer, Runnable {
         // compare the counters with the one in roomCounts
         for (RoomType typ: RoomType.values()) {
             ArrayList<int[]> list_gen = counts.get(typ);
-            AvailableRoomCounts cnts = roomCounts.get(typ);
+            RoomCounts cnts = roomCounts.get(typ);
             
-            SimpleDate dt = cnts.getBookingStartDate();
+            SimpleDate dt = cnts.getLastAllocatedDate();
             
             for (int i=0; i<list_gen.size();i++) {
                 // compare the #i count
-                int cnt = cnts.getCount(dt);
+                int cnt = cnts.queryCount(dt);
                 
                 if (cnt != list_gen.get(i)[0]) {
                     match = false;
