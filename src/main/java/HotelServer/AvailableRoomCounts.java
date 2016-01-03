@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import common.HotelServerTypes.*;
+import HotelServer.HotelServerTypes.*;
 
 /*
  * Store data of the available rooms (for one hotel and one type of room only)

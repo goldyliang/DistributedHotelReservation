@@ -24,12 +24,11 @@ import java.util.TreeMap;
 
 import javax.xml.ws.Endpoint;
 
+import HotelServer.ErrorAndLogMsg.ErrorCode;
+import HotelServer.ErrorAndLogMsg.MsgType;
+import HotelServer.HotelServerTypes.*;
 import HotelServer.ReserveRecords.IRecordOperation;
 import HotelServerInterface.IHotelServer;
-import common.ErrorAndLogMsg;
-import common.ErrorAndLogMsg.ErrorCode;
-import common.ErrorAndLogMsg.MsgType;
-import common.HotelServerTypes.*;
 import serverws.HotelServerWS;
 
 public class HotelServer implements IHotelServer, Runnable {
@@ -299,10 +298,13 @@ public class HotelServer implements IHotelServer, Runnable {
     	final List <Record> resultList = list;
     	
         // check manager login token first
-    	if (token != managerLoginToken) {
+    	// TODO: need a better authentication way
+    	// just ignore for now
+    	
+    	/*if (token != managerLoginToken) {
     		list.clear();
     		return ErrorCode.MGR_LOGIN_FAILURE;
-    	}
+    	}*/
         
         resRecords.traverseAllRecords(
                 new IRecordOperation() {
@@ -330,10 +332,12 @@ public class HotelServer implements IHotelServer, Runnable {
     	final List <Record> resultList = list;
     	
         // check manager login token first
+    	// TODO: better authentication required
+    	/*
     	if (token != managerLoginToken) {
     		list.clear();
     		return ErrorCode.MGR_LOGIN_FAILURE;
-    	}
+    	} */
         
         resRecords.traverseAllRecords(
                 new IRecordOperation() {
@@ -796,11 +800,14 @@ public class HotelServer implements IHotelServer, Runnable {
         
         // work-around solution, hard code socket addresses
         
+    	//TODO only support one hotel for now
         srvSocketAddresses = new TreeMap <String,InetSocketAddress> ();
         
-        srvSocketAddresses.put("Gordon", new InetSocketAddress("localhost", 5000));
+        srvSocketAddresses.put(prof.shortName, new InetSocketAddress("localhost",queryPort));
+        
+        /*srvSocketAddresses.put("Gordon", new InetSocketAddress("localhost", 5000));
         srvSocketAddresses.put("Star", new InetSocketAddress("localhost", 5001));
-        srvSocketAddresses.put("Motel", new InetSocketAddress("localhost", 5002));
+        srvSocketAddresses.put("Motel", new InetSocketAddress("localhost", 5002));*/
     }
     
     void startQueryListeningThread () {

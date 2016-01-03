@@ -3,6 +3,7 @@ package serverws;
 
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,22 +15,23 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import HotelServer.ErrorAndLogMsg;
+import HotelServer.ErrorAndLogMsg.ErrorCode;
+import HotelServer.HotelServerTypes.*;
 import HotelServerInterface.IHotelServer;
-import common.ErrorAndLogMsg.ErrorCode;
-import common.HotelServerTypes.*;
 
 //Wrapper class for HotelServer Webservice
 
 @RestController
 public class HotelServerWS {
 
-	@Autowired
     IHotelServer server;
     
     public HotelServerWS () {
     	System.out.println("Construction");
     }
     
+	@Autowired
     public HotelServerWS (IHotelServer server) {
         this.server = server;
     }
@@ -61,7 +63,7 @@ public class HotelServerWS {
 	    	System.out.println("In:" + checkInDate);
 	    	System.out.println("Oout:" + checkOutDate);
     	} catch (Exception e) {
-    		e.printStackTrace();
+    		//e.printStackTrace();
     		return new GeneralReturn (ErrorCode.INVALID_REQUEST, 0);
     	}
     	
@@ -80,10 +82,22 @@ public class HotelServerWS {
     	return ret; 
 	}
 	
-	
+    @RequestMapping(value="/cancel", method={RequestMethod.POST})
 	public GeneralReturn cancelRoom (
-			String guestID, RoomType roomType, 
-			SimpleDate checkInDate, SimpleDate checkOutDate) {
+			@RequestBody Record input) {
+    	String guestID;
+    	RoomType roomType;
+    	SimpleDate checkInDate, checkOutDate;
+    	
+    	try {
+	    	guestID = input.guestID;
+	    	roomType = input.roomType;
+	    	checkInDate = input.checkInDate;
+	    	checkOutDate = input.checkOutDate;
+    	} catch (Exception e) {
+    		//e.printStackTrace();
+    		return new GeneralReturn (ErrorCode.INVALID_REQUEST, 0);
+    	}
     	
     	ErrorCode error = server.cancelRoom(
     			guestID, 
@@ -94,25 +108,54 @@ public class HotelServerWS {
     	return ret;
     }
     
-	public Availability[] checkAvailability (
-			String guestID, RoomType roomType,
-			SimpleDate checkInDate, SimpleDate checkOutDate) {
+    @RequestMapping(value="/avail", method={RequestMethod.GET})
+	public AvailabilityReturn checkAvailability (
+			//String guestID, 
+			@RequestParam("type") RoomType roomType,
+			@RequestParam("in") String sCheckInDate, 
+			@RequestParam("out") String sCheckOutDate) {
+    	
+    	SimpleDate checkInDate, checkOutDate ;
+    	AvailabilityReturn ret = new AvailabilityReturn();
+
+		try {
+			checkInDate = SimpleDate.parse(sCheckInDate);
+			checkOutDate = SimpleDate.parse(sCheckOutDate);
+		} catch (ParseException e) {
+			ErrorAndLogMsg.ExceptionErr(e, "Wrong dates.").printMsg();
+			
+	    	ret.error = ErrorCode.INVALID_DATES;
+
+			return ret;
+		}
     	
     	List <Availability> list = server.checkAvailability(
-    			guestID, 
+    			"", 
     			roomType,
     			checkInDate, 
     			checkOutDate);
 		
-    	return list.toArray(new Availability[0]);
+    	ret.error = ErrorCode.SUCCESS;
+    	ret.avails = list;
+    	
+    	return ret;
 	}
 	
-	public Record[] getReserveRecords (
-			String guestID ) {
-    	return null;
+    @RequestMapping(value="/records", method={RequestMethod.GET})
+	public ListRecordReturn getReserveRecords (
+			@RequestParam("id") String guestID ) {
+    	
+    	Record[] records = server.getReserveRecords(guestID);
+    	ListRecordReturn ret = new ListRecordReturn();
+    	ret.error = ErrorCode.SUCCESS;
+    	ret.listRecord = new ArrayList <Record> ();
+    	ret.listRecord.addAll(Arrays.asList(records));
+    	
+    	return ret;
     }
-	
-	public GeneralReturn transferRoom (
+
+	// TODO: not supported for now
+	/*public GeneralReturn transferRoom (
 	        String guestID, int reservationID,
 	        RoomType roomType,
 	        SimpleDate checkInDate, SimpleDate checkOutDate,
@@ -133,7 +176,7 @@ public class HotelServerWS {
 
     	return ret;
     	
-    }
+    } */
     
     /* if successfull login, return a token ID
      * Otherwise, return -1
@@ -141,47 +184,61 @@ public class HotelServerWS {
     @RequestMapping(value="/mgrlogin", method={RequestMethod.POST})
     public long loginAsManager (@RequestParam String user, @RequestParam String pass) {
     	
-    	return server.loginAsManager(user, pass);
+    	long res = server.loginAsManager(user, pass);
+    	return res;
     	
     }
     
     /* the token ID is to be compared with the generated token ID
      * return null if login token ID is wrong
      */
-    
     @RequestMapping(value="/servicereport", method={RequestMethod.GET})
-	public ManagerReturn getServiceReport (
-			@RequestParam long token, 
-			@RequestParam String serviceDate) {
+	public ListRecordReturn getServiceReport (
+			//@RequestParam long token, 
+			@RequestParam("date") String serviceDate) {
     	
     	SimpleDate date;
 		try {
 			date = SimpleDate.parse(serviceDate);
 		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
+			ErrorAndLogMsg.ExceptionErr(e, "Wrong date.").printMsg();
+			
+	    	ListRecordReturn ret = new ListRecordReturn(ErrorCode.INVALID_DATES);
+
+			return ret;
 		}
     	
-    	System.out.println("Token:"+token);
-    	System.out.println("date:" + date);
     	List <Record> list = new ArrayList <Record> ();
     	
-    	ErrorCode error = server.getServiceReport(token, date, list);
+    	ErrorCode error = server.getServiceReport(0, date, list);
     	
-    	ManagerReturn ret = new ManagerReturn(error);
+    	ListRecordReturn ret = new ListRecordReturn(error);
     	ret.listRecord = list;
     	
     	return ret;
     }
 	
-	public ManagerReturn getStatusReport (long token, SimpleDate statusDate) {
-    	
+    @RequestMapping(value="/statusreport", method={RequestMethod.GET})
+	public ListRecordReturn getStatusReport (
+			//long token,
+			@RequestParam("date") String statusDate) {
+
+    	SimpleDate date;
+		try {
+			date = SimpleDate.parse(statusDate);
+		} catch (ParseException e) {
+			ErrorAndLogMsg.ExceptionErr(e, "Wrong date.").printMsg();
+			
+	    	ListRecordReturn ret = new ListRecordReturn(ErrorCode.INVALID_DATES);
+
+			return ret;
+		}
+		
     	List <Record> list = new ArrayList <Record> ();
     	
-    	ErrorCode error = server.getStatusReport(token, statusDate, list);
+    	ErrorCode error = server.getStatusReport(0, date, list);
     	
-    	ManagerReturn ret = new ManagerReturn(error);
+    	ListRecordReturn ret = new ListRecordReturn(error);
     	ret.listRecord = list;
     	
     	return ret;

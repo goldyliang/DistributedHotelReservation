@@ -2,8 +2,8 @@ package HotelServerInterface;
 
 import java.util.List;
 
-import common.ErrorAndLogMsg.ErrorCode;
-import common.HotelServerTypes.*;
+import HotelServer.ErrorAndLogMsg.ErrorCode;
+import HotelServer.HotelServerTypes.*;
 
 public interface IHotelServer {
 	

@@ -2,7 +2,7 @@ package serverws;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-import common.ErrorAndLogMsg.ErrorCode;
+import HotelServer.ErrorAndLogMsg.ErrorCode;
 
 /*
  * Class for general return information (ErrorCode, and ReserverationID (if any)

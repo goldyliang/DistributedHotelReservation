@@ -10,7 +10,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import common.HotelServerTypes.*;
+import HotelServer.HotelServerTypes.*;
 
 
 /*

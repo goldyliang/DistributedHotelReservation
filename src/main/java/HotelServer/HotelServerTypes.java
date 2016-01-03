@@ -1,4 +1,4 @@
-package common;
+package HotelServer;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -9,6 +9,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.EnumMap;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.nio.ByteBuffer;
 import java.text.DateFormat;
@@ -76,12 +77,25 @@ public class HotelServerTypes {
 	//@XmlRootElement
 	public static class Record {
 		
+		@JsonProperty("resid")
 	    public int resID;
+		
+		@JsonProperty("id")
 		public String guestID; 
+		
+		@JsonProperty("hotel")
 		public String shortName;
+		
+		@JsonProperty("type")
 		public RoomType roomType;
+		
+		@JsonProperty("in")
 		public SimpleDate checkInDate; 
+		
+		@JsonProperty("out")
 		public SimpleDate checkOutDate;
+		
+		@JsonProperty("rate")
 		public float rate; // negative if not confirmed
 		
 		public Record () {

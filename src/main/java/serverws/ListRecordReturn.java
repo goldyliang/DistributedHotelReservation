@@ -4,19 +4,19 @@ import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-import common.ErrorAndLogMsg.ErrorCode;
-import common.HotelServerTypes.Record;
+import HotelServer.ErrorAndLogMsg.ErrorCode;
+import HotelServer.HotelServerTypes.Record;
 
 @XmlRootElement
-public class ManagerReturn {
+public class ListRecordReturn {
 	
 	public ErrorCode error;
 	
 	public List<Record> listRecord;
 	
-	public ManagerReturn () {}
+	public ListRecordReturn () {}
 	
-	public ManagerReturn (ErrorCode error) {
+	public ListRecordReturn (ErrorCode error) {
 		this.error = error;
 		this.listRecord = null;
 	}

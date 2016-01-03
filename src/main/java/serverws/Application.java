@@ -7,10 +7,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
 
 import HotelServer.HotelServer;
+import HotelServer.HotelServerTypes.HotelProfile;
 import HotelServerInterface.IHotelServer;
-import common.HotelServerTypes.HotelProfile;
 
 
 @SpringBootApplication
