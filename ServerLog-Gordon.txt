@@ -1,3 +1,4 @@
-LOG:Wed Dec 30 20:36:03 EST 2015:Logging started.
-LOG:Wed Dec 30 20:36:03 EST 2015:Logging started.
-LOG:Wed Dec 30 20:39:05 EST 2015:Time out receiving query respond, finished receiving..
+LOG:Sat Jan 02 23:38:07 EST 2016:Logging started.
+LOG:Sat Jan 02 23:38:07 EST 2016:Logging started.
+LOG:Sat Jan 02 23:38:57 EST 2016:Reservation success: ResID:500000;GuestID:12345;Hotel:Gordon;Type:SINGLE;In:2016/01/10;Out:2016/01/15;Rate:80.0;From: N/A
+LOG:Sat Jan 02 23:39:12 EST 2016:Cancelation success: ResID:0;GuestID:12345;Hotel:Gordon;Type:SINGLE;In:2016/01/10;Out:2016/01/15;Rate:80.0;From: N/A

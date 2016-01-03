@@ -1,6 +1,6 @@
-package HotelServer.roomcounts;
+package server.roomcounts;
 
-import HotelServer.HotelServerTypes.SimpleDate;
+import server.HotelServerTypes.SimpleDate;
 
 public interface RoomCounts {
 

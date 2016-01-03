@@ -1,4 +1,4 @@
-package HotelServer;
+package server;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -24,13 +24,13 @@ import java.util.TreeMap;
 
 import javax.xml.ws.Endpoint;
 
-import HotelServer.ErrorAndLogMsg.ErrorCode;
-import HotelServer.ErrorAndLogMsg.MsgType;
-import HotelServer.HotelServerTypes.*;
-import HotelServer.ReserveRecords.IRecordOperation;
-import HotelServer.roomcounts.RoomCounts;
-import HotelServer.roomcounts.RoomCountsFactory;
 import HotelServerInterface.IHotelServer;
+import server.ErrorAndLogMsg.ErrorCode;
+import server.ErrorAndLogMsg.MsgType;
+import server.HotelServerTypes.*;
+import server.ReserveRecords.IRecordOperation;
+import server.roomcounts.RoomCounts;
+import server.roomcounts.RoomCountsFactory;
 import serverws.HotelServerWS;
 
 public class HotelServer implements IHotelServer, Runnable {

@@ -1,10 +1,11 @@
-package HotelServer.roomcounts;
+package server.roomcounts;
 
-import HotelServer.HotelServerTypes.SimpleDate;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import server.HotelServerTypes.SimpleDate;
 
 
 /**

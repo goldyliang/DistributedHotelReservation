@@ -4,8 +4,8 @@ import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-import HotelServer.ErrorAndLogMsg.ErrorCode;
-import HotelServer.HotelServerTypes.Record;
+import server.ErrorAndLogMsg.ErrorCode;
+import server.HotelServerTypes.Record;
 
 @XmlRootElement
 public class ListRecordReturn {

@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import HotelServer.ErrorAndLogMsg;
-import HotelServer.ErrorAndLogMsg.ErrorCode;
-import HotelServer.HotelServerTypes.*;
 import HotelServerInterface.IHotelServer;
+import server.ErrorAndLogMsg;
+import server.ErrorAndLogMsg.ErrorCode;
+import server.HotelServerTypes.*;
 
 //Wrapper class for HotelServer Webservice
 

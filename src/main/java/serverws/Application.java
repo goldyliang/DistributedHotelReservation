@@ -9,9 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-import HotelServer.HotelServer;
-import HotelServer.HotelServerTypes.HotelProfile;
 import HotelServerInterface.IHotelServer;
+import server.HotelServer;
+import server.HotelServerTypes.HotelProfile;
 
 
 @SpringBootApplication
